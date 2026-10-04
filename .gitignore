@@ -1,0 +1,34 @@
+# 敏感信息
+config.py
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# 日志
+*.log
+logs/
+
+# 表情包（可选，如果表情太多可以不提交）
+emojis/*.jpg
+emojis/*.png
+emojis/*.gif
+emojis/*.webp
+
+# 压缩包
+*.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统
+.DS_Store
+Thumbs.db
