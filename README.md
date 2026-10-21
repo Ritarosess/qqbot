@@ -218,6 +218,55 @@ QQBOT/
 
 生产部署（阿里云 ECS + Docker + systemd）见 [deploy/README.md](deploy/README.md)。
 
+### 交给 AI 部署
+
+不想自己敲命令的话，把下面这段完整发给任意具备终端操作能力的 AI（Claude Code、Cursor、DeepSeek Harness 等），它会按步骤执行：
+
+```text
+请帮我在一台阿里云 ECS 上部署 QQ 机器人：https://github.com/Ritarosess/qqbot
+
+【环境】
+- Ubuntu 22.04 及以上
+- 已经通过 SSH 密钥登录，当前用户有免密 sudo
+- 安全组只放行 22 端口
+- 已准备好 DeepSeek API Key 和机器人 QQ 号
+- ECS 需要能访问 GitHub / PyPI / Docker Hub（或国内镜像）
+
+【目标架构】
+NapCat 用 Docker 运行，提供 OneBot v11 WebSocket；bot 用 Python 虚拟环境 + systemd 托管。
+6099（WebUI）和 3001（WebSocket）只监听 127.0.0.1，通过 SSH 隧道访问 WebUI。
+
+【执行步骤】
+1. 克隆仓库到 /opt/qqbot（或从本机上传打包文件并解压）。
+2. 执行 sudo bash /opt/qqbot/deploy/install.sh。
+   该脚本会安装 Python/Docker、创建 qqbot 用户和虚拟环境、拉取 NapCat 镜像、安装 systemd 服务。
+3. 编辑 /etc/qqbot/qqbot.env，至少填写：
+   AI_API_KEY=你的密钥
+   ADMIN_ID=你的QQ号
+   按需补充：GROUP_WHITELIST、GROUP_CHAT_PROBABILITY、GROUP_CHAT_COOLDOWN、WUWA_TOKEN。
+4. 确认 napcat 容器在运行；建立 SSH 隧道（ssh -N -L 6099:127.0.0.1:6099 用户@服务器），
+   打开 http://127.0.0.1:6099/webui 获取 WebUI Token（grep WEBUI_TOKEN /opt/napcat/.env），
+   用手机 QQ 扫码登录机器人账号。
+5. sudo systemctl enable --now qqbot。
+6. 验证：
+   - systemctl is-active qqbot 返回 active
+   - journalctl -u qqbot 出现「已连接」和「机器人登录号」
+   - sudo /opt/qqbot/.venv/bin/python /opt/qqbot/deploy/probe_login.py 能查到 QQ
+   - sudo bash -c 'set -a; . /etc/qqbot/qqbot.env; set +a; EMOJI_DIR=/opt/qqbot/emojis /opt/qqbot/.venv/bin/python /opt/qqbot/deploy/verify_emojis.py' 能取到表情
+   - 在群里 @机器人 能正常回复
+
+【硬性限制】
+- 不要重建已存在的 napcat 容器，重建会丢失 QQ 登录态、需要重新扫码。
+- 不要修改端口绑定，不要为了省事把 6099/3001 暴露到公网。
+- 表情走远程 API 并以 base64 发送，不要改回本地文件路径。
+- 不要把 /etc/qqbot/qqbot.env 或 deploy/keys 提交到任何仓库。
+
+【完成后汇报】
+服务状态、登录的 QQ 号、群白名单、插话概率与冷却、表情是否可用、遇到的报错及处理方式。
+```
+
+如果对方只能操作 Windows（比如你本机），改用 `deploy/deploy.ps1 -Server <公网IP>`，它会自动打包上传并调用服务器端的安装脚本。
+
 ## 常见问题
 
 **@机器人没反应**
