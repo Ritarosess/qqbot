@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 
 import aiohttp
 from datetime import datetime, timedelta
@@ -15,6 +16,7 @@ from ai_client import AIClient
 from conversation import ConversationManager
 from message_handler import MessageHandler
 from emoji_manager import EmojiManager
+from minimax_voice import build_tts
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL, logging.INFO),
@@ -33,10 +35,20 @@ class QQBot:
         )
         self.conv = ConversationManager(config.MAX_HISTORY)
         self.emoji = EmojiManager(config.EMOJI_DIR)
-        self.handler = MessageHandler(self.ai, self.conv, self.emoji)
+        
+        # 初始化语音合成（千问平台 CosyVoice / MiniMax）
+        self.tts = None
+        api_key = config.DASHSCOPE_API_KEY or config.MINIMAX_API_KEY
+        if config.TTS_ENABLED and api_key:
+            self.tts = build_tts(api_key, config.TTS_VOICE, config.TTS_MODEL)
+            logger.info("语音合成已启用，模型: %s, 音色: %s", config.TTS_MODEL, config.TTS_VOICE)
+
+        self.handler = MessageHandler(self.ai, self.conv, self.emoji, self.tts)
         self.queue: asyncio.Queue[dict] = asyncio.Queue()
         self.ws: aiohttp.ClientWebSocketResponse | None = None
         self._summary_task: asyncio.Task | None = None
+        # 语音冷却记录
+        self._voice_cooldown: dict[int, float] = {}
         # API 调用相关
         self._pending_requests: dict[str, asyncio.Future] = {}
         self._echo_counter = 0
@@ -112,7 +124,41 @@ class QQBot:
             except (IndexError, ValueError):
                 reply = "用法: /clear <群号>"
         elif text == "/help":
-            reply = "/status  状态\n/clear <群号>  清空上下文\n/summary  手动触发今日总结\n/emoji  查看表情包列表\n/fetch_emoji  重新获取 QQ 收藏表情"
+            reply = (
+                "/status  状态\n/clear <群号>  清空上下文\n/summary  手动触发今日总结\n"
+                "/emoji  查看表情包列表\n/voice <文字>  发送语音\n\n"
+                "语音触发（私聊/群里都能用）：\n"
+                "  语音 你好呀 / 朗读 今天天气不错 / 念一遍 晚安\n"
+                "  说 你好、念：晚安（单字前缀需带空格或冒号）\n"
+                "群里单字触发需 @我 或带触发词，避免误触发"
+            )
+
+        # 语音指令：/voice <内容>
+        elif text.startswith("/voice"):
+            voice_text = text[len("/voice"):].strip().lstrip(":：").strip()
+            if not self.tts:
+                reply = "语音功能未启用，请设置 DASHSCOPE_API_KEY"
+            elif not voice_text:
+                reply = "用法: /voice <文字>\n例如: /voice 你好呀"
+            else:
+                ok = await self.handler.send_voice(ws, "private", event["user_id"], voice_text)
+                reply = None if ok else "语音合成失败，请检查 API Key"
+
+        # 自然语言语音触发：语音 xxx / 朗读 xxx / 说 xxx
+        elif self.tts:
+            hit = self.handler.match_voice_trigger(text)
+            if hit:
+                voice_text = hit[1]
+                if not voice_text:
+                    reply = "要说什么呀～"
+                elif self.handler.voice_cooling("p", event["user_id"]):
+                    reply = "刚说过啦，歇一下嘛～"
+                else:
+                    ok = await self.handler.send_voice(ws, "private", event["user_id"], voice_text)
+                    reply = None if ok else "语音合成失败，检查下 API Key 呢"
+            else:
+                await self._private_chat(ws, event, text)
+                return
         elif text == "/summary":
             await self._daily_summary()
             reply = "已触发今日总结任务"
@@ -147,7 +193,8 @@ class QQBot:
             # 普通私聊内容 → 交给 AI 对话
             await self._private_chat(ws, event, text)
             return
-        await self._send_private(ws, event["user_id"], reply)
+        if reply:
+            await self._send_private(ws, event["user_id"], reply)
 
     async def _private_chat(self, ws, event: dict, text: str):
         """管理员私聊普通内容 → AI 对话（与群聊上下文隔离）"""
@@ -162,6 +209,9 @@ class QQBot:
         if reply:
             logger.info("私聊 AI 回复: %s", reply)
             self.conv.add_assistant(key, reply)
+            # 按概率改用语音回复
+            if await self.handler.maybe_voice_reply(ws, "private", user_id, reply):
+                return
             await self._send_private_with_emoji(ws, user_id, reply)
         else:
             await self._send_private(ws, user_id, "（AI 暂时没有响应，请稍后再试）")
@@ -264,7 +314,8 @@ class QQBot:
                     "2. 概括主要话题和有趣的内容\n"
                     "3. 提到活跃的发言者\n"
                     "4. 结尾可以说一句鼓励或期待的话\n"
-                    "5. 总长度控制在200字以内\n\n"
+                    "5. 总长度控制在200字以内\n"
+                    "6. 这是纯文字总结，绝对不要输出 [emoji]、[表情]、[图片] 等任何方括号占位标记\n\n"
                     "以下是昨日群聊记录：\n"
                 )
 
@@ -280,6 +331,14 @@ class QQBot:
                     {"role": "user", "content": full_prompt}
                 ])
 
+                if summary:
+                    # 清理残留占位符：总结是纯文字，不允许出现 [emoji]/[表情]/[图片]
+                    summary = re.sub(
+                        r"\[(?:emoji|表情|图片|image|img|贴图)[^\]]*\]",
+                        "",
+                        summary,
+                        flags=re.IGNORECASE,
+                    ).strip()
                 if summary:
                     await self._send_group(self.ws, group_id, f"📋 昨日群聊总结 📋\n\n{summary}")
                     logger.info("群 %d 总结已发送", group_id)

@@ -52,3 +52,9 @@ id_rsa
 emojis.json
 *.sqlite3
 data/
+
+# 语音素材与产物（复刻样本，体积大且不进 Git / 部署包）
+声音素材/
+*.wav
+*.mp3
+*.m4a

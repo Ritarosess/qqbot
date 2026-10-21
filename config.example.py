@@ -26,6 +26,37 @@ TRIGGER_KEYWORDS = ["bot", "爱弥斯", "小爱", "aemeath"]
 COOLDOWN = 3
 MAX_HISTORY = 20
 
+# ===== 群聊自然插话 =====
+GROUP_CHAT_ENABLED = os.getenv("GROUP_CHAT", "1") == "1"
+GROUP_CHAT_PROBABILITY = float(os.getenv("GROUP_CHAT_PROBABILITY", "0.10"))
+GROUP_CHAT_COOLDOWN = int(os.getenv("GROUP_CHAT_COOLDOWN", "120"))
+GROUP_CHAT_CONTEXT = int(os.getenv("GROUP_CHAT_CONTEXT", "12"))
+
+# 群白名单：只在这些群里参与，留空 = 全部群
+GROUP_WHITELIST = {
+    int(x) for x in os.getenv("GROUP_WHITELIST", "").replace("，", ",").replace(",", " ").split()
+    if x.strip().isdigit()
+}
+
+# ===== 语音合成（千问平台 CosyVoice / MiniMax） =====
+TTS_ENABLED = os.getenv("TTS_ENABLED", "0") == "1"
+DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+TTS_MODEL = os.getenv("TTS_MODEL", "cosyvoice-v3.5-flash")
+TTS_VOICE = os.getenv("TTS_VOICE", "longanyang")  # 也可填复刻音色 ID
+TTS_COOLDOWN = int(os.getenv("TTS_COOLDOWN", "10"))
+
+# ===== 语音触发规则 =====
+VOICE_TRIGGER_PREFIXES = [
+    p.strip() for p in os.getenv(
+        "VOICE_TRIGGER_PREFIXES",
+        "语音,说,念,读,朗读,用语音说,发语音,语音回复,读一下,念一下,念一遍,朗读一下,用声音",
+    ).replace("，", ",").split(",") if p.strip()
+]
+
+# ===== 概率语音回复 =====
+VOICE_REPLY_PROBABILITY = float(os.getenv("VOICE_REPLY_PROBABILITY", "0.25"))
+VOICE_MAX_CHARS = int(os.getenv("VOICE_MAX_CHARS", "120"))
+
 # ===== 爱弥斯人设 =====
 SYSTEM_PROMPT = (
     "【身份】\n"

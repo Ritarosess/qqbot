@@ -104,7 +104,10 @@ $parent = Split-Path $ProjectRoot -Leaf
     --exclude "$parent/.vscode" `
     --exclude "$parent/deploy/keys" `
     --exclude "$parent/deploy/wip-backup" `
+    --exclude "$parent/声音素材" `
     --exclude "$parent/*.log" `
+    --exclude "$parent/*.wav" `
+    --exclude "$parent/*.mp3" `
     --exclude "$parent/emojis.json" `
     -C (Split-Path $ProjectRoot -Parent) $parent
 if ($LASTEXITCODE -ne 0) { throw "打包失败" }

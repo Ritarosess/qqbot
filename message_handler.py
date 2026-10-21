@@ -3,7 +3,9 @@
 """
 import base64
 import os
+import random
 import re
+import time
 import json
 import logging
 
@@ -36,14 +38,70 @@ def _to_onebot_file(path: str) -> str:
 
 
 class MessageHandler:
-    def __init__(self, ai: AIClient, conv: ConversationManager, emoji: EmojiManager):
+    def __init__(self, ai: AIClient, conv: ConversationManager, emoji: EmojiManager, tts=None):
         self.ai = ai
         self.conv = conv
         self.emoji = emoji
+        self.tts = tts  # TTS 实例（CosyVoice / MiniMax 后端）
         self._bot_id: int | None = None
+        self._voice_last: dict[tuple[str, int], float] = {}
 
     def set_bot_id(self, bot_id: int):
         self._bot_id = bot_id
+
+    # ===== 语音触发 =====
+
+    def match_voice_trigger(self, text: str) -> tuple[str, str] | None:
+        """匹配语音触发前缀，返回 (前缀, 待朗读内容)；未命中返回 None。
+
+        规则：
+        - 多字前缀（语音/朗读/读一下/用语音说...）可直接跟内容
+        - 单字前缀（说/念/读/唱）必须带分隔符（空格、冒号、逗号等），
+          避免「说明一下」「读书」这类普通句子被误触发
+        """
+        text = (text or "").strip()
+        for prefix in sorted(config.VOICE_TRIGGER_PREFIXES, key=len, reverse=True):
+            if not text.startswith(prefix):
+                continue
+            rest = text[len(prefix):]
+            lead = rest.lstrip(" 　:：,，.。!！~～\"“”'‘’")
+            if len(lead) < len(rest):      # 前缀后带分隔符
+                return prefix, lead.strip()
+            if len(prefix) >= 2:           # 多字前缀可直接接内容
+                return prefix, rest.strip()
+            return None                    # 单字且无分隔符 → 不触发
+        return None
+
+    def voice_cooling(self, scope: str, key: int) -> bool:
+        """语音冷却检查：True = 还在冷却中，应跳过"""
+        now = time.time()
+        stamp = (scope, key)
+        if now - self._voice_last.get(stamp, 0.0) < config.TTS_COOLDOWN:
+            return True
+        self._voice_last[stamp] = now
+        return False
+
+    def _voice_text_of(self, content: str) -> str:
+        """把 AI 回复清洗成适合朗读的纯文本：去掉表情占位符和方括号标签"""
+        text = re.sub(
+            r"\[(?:emoji|表情|图片|image|img|贴图)[^\]]*\]", "", content, flags=re.IGNORECASE
+        )
+        text = re.sub(r"\[[^\[\]]{0,12}\]", "", text)  # 其余 [开心] 类标签
+        return re.sub(r"\s{2,}", " ", text).strip()
+
+    async def maybe_voice_reply(self, ws, scope: str, target_id: int, content: str) -> bool:
+        """普通聊天回复按概率改发语音；成功发出返回 True（调用方就别再发文字了）"""
+        if not self.tts or config.VOICE_REPLY_PROBABILITY <= 0:
+            return False
+        if random.random() >= config.VOICE_REPLY_PROBABILITY:
+            return False
+        text = self._voice_text_of(content)
+        if not text or len(text) > config.VOICE_MAX_CHARS:
+            return False
+        if self.voice_cooling(scope, target_id):
+            return False
+        logger.info("[概率语音] %s %d: %s", scope, target_id, text[:50])
+        return await self.send_voice(ws, scope, target_id, text)
 
     def _strip_trigger(self, text: str, mentions: list[int]) -> tuple[str, bool]:
         if self._bot_id and self._bot_id in mentions:
@@ -162,6 +220,30 @@ class MessageHandler:
             logger.info("[群%d] %s 发送了 %d 个收藏表情（自动收藏关闭时忽略）", group_id, nickname, len(faces))
             return
 
+        # 语音触发：语音 xxx / 朗读一下 xxx / 说 xxx 等
+        # 单字前缀（说/念/读）在群里需 @机器人 或带关键词，避免日常语句误触发
+        if self.tts:
+            hit = self.match_voice_trigger(raw_text)
+            if hit:
+                prefix = hit[0]
+                targeted = bool(self._bot_id and self._bot_id in mentions) or any(
+                    raw_text.lower().startswith(kw.lower()) for kw in config.TRIGGER_KEYWORDS
+                )
+                if len(prefix) == 1 and not targeted:
+                    hit = None
+            if hit:
+                voice_text = hit[1]
+                if not voice_text:
+                    await self._send_group(ws, group_id, "要说什么呀～")
+                    return
+                if self.voice_cooling("g", group_id):
+                    logger.info("[群%d] 语音冷却中，跳过", group_id)
+                    return
+                logger.info("[群%d] 语音请求(%s): %s", group_id, hit[0], voice_text)
+                if not await self.send_voice(ws, "group", group_id, voice_text):
+                    await self._send_group(ws, group_id, "语音合成失败，稍后再试～")
+                return
+
         text, triggered = self._strip_trigger(raw_text, mentions)
         if not triggered:
             await self._maybe_join_group_chat(ws, group_id, user_id, raw_text)
@@ -181,6 +263,9 @@ class MessageHandler:
         if reply:
             logger.info("AI 回复: %s", reply)
             self.conv.add_assistant(group_id, reply)
+            # 按概率改用语音回复
+            if await self.maybe_voice_reply(ws, "group", group_id, reply):
+                return
             await self._send_group_with_emoji(ws, group_id, reply)
         else:
             await self._send_group(ws, group_id, "（AI 暂时没有响应，请稍后再试）")
@@ -239,6 +324,9 @@ class MessageHandler:
         logger.info("AI 插话: %s", cleaned)
         self.conv.add_user(group_id, text)
         self.conv.add_assistant(group_id, cleaned)
+        # 按概率改用语音插话
+        if await self.maybe_voice_reply(ws, "group", group_id, cleaned):
+            return
         await self._send_group_with_emoji(ws, group_id, cleaned)
 
     async def _send_group(self, ws, group_id: int, content: str):
@@ -341,3 +429,45 @@ class MessageHandler:
             "params": {"group_id": group_id, "message": segments},
         }))
         logger.info("发送消息: %s", json.dumps(segments, ensure_ascii=False)[:300])
+
+    async def send_voice(self, ws, target_type: str, target_id: int, text: str, voice: str = None):
+        """
+        发送语音消息
+        
+        Args:
+            ws: WebSocket 连接
+            target_type: "group" 或 "private"
+            target_id: 群号或用户号
+            text: 要转换为语音的文字
+            voice: 指定音色，默认使用 TTS 实例的默认音色
+        """
+        if not self.tts:
+            logger.warning("TTS 未初始化，无法发送语音")
+            return False
+        
+        # 生成语音
+        voice_base64 = await self.tts.text_to_speech_base64(text, voice)
+        if not voice_base64:
+            logger.error("语音合成失败")
+            return False
+        
+        # 构造 OneBot 消息段
+        segments = [
+            {"type": "record", "data": {"file": voice_base64}}
+        ]
+        
+        # 发送
+        if target_type == "group":
+            action = "send_group_msg"
+            id_param = "group_id"
+        else:
+            action = "send_private_msg"
+            id_param = "user_id"
+        
+        await ws.send_str(json.dumps({
+            "action": action,
+            "params": {id_param: target_id, "message": segments},
+        }))
+        
+        logger.info("发送语音到 %s %d: %s", target_type, target_id, text[:50])
+        return True
