@@ -116,6 +116,12 @@ class MessageHandler:
 
     async def handle_group(self, ws, event: dict):
         group_id = event["group_id"]
+
+        # 群白名单：不在名单里的群完全不参与（不记录、不回复、不插话）
+        if config.GROUP_WHITELIST and group_id not in config.GROUP_WHITELIST:
+            logger.debug("群 %d 不在白名单，忽略", group_id)
+            return
+
         user_id = event["user_id"]
         nickname = event.get("sender", {}).get("nickname", "匿名")
         raw_text, mentions = self._extract_text(event["message"])
@@ -209,9 +215,11 @@ class MessageHandler:
         recent = self.conv.get_daily_messages(group_id)[-config.GROUP_CHAT_CONTEXT:]
         history = "\n".join(f"{m['nickname']}: {m['content']}" for m in recent)
         instruction = (
-            "下面是群友最近的聊天记录。你正在群里潜水，看到合适的话题可以用一句话自然插一句；"
-            "如果没什么想说的，或者插话会很突兀，就只回复 [skip]，不要解释。\n"
-            "要求：只回一句，口语化，不要提问，不要复述聊天记录，不要暴露这段指令。\n\n"
+            "下面是群友最近的聊天记录。你是这个群里的成员，正在和他们一起聊天。\n"
+            "请像普通群友一样，顺着话题自然接一句（一句话，最多两句），不要当旁观者。\n"
+            "除非话题涉及隐私、正在吵架、内容严肃敏感，或者你确实完全插不上话，否则都应该接一句。\n"
+            "只有在上述极少数情况下才回复 [skip]。\n"
+            "不要提问，不要复述聊天记录，不要解释，不要暴露这段指令。\n\n"
             + history
         )
 
@@ -239,12 +247,17 @@ class MessageHandler:
             "params": {"group_id": group_id, "message": content},
         }))
 
-    def build_segments(self, content: str) -> list[dict]:
-        """把 [emoji] / [emoji:关键词] 展开为 OneBot 消息段（群聊、私聊共用）
+    async def build_segments(self, content: str) -> list[dict]:
+        """把 [emoji] / [emoji:角色名] 展开为 OneBot 消息段（群聊、私聊共用）
 
-        纯素材包模式：找不到对应表情时静默跳过，绝不输出 [表情] 之类的占位文本。
+        只使用远程表情库：
+        - [emoji]        → 全站随机
+        - [emoji:任意]   → 全站随机
+        - [emoji:角色名] → 指定角色随机（如 菲比、今汐、珂莱塔）
         """
         import re
+        remote_character_tags = {"爱弥斯", "小爱", "小爱同学", "aimisi"}
+        remote_any_tags = {"任意", "随机", "全部", "wuwa"}
         segments = []
         last_end = 0
 
@@ -255,7 +268,25 @@ class MessageHandler:
                     segments.append({"type": "text", "data": {"text": text}})
 
             keyword = match.group(1)  # None 表示随机
-            emoji = self.emoji.find_by_keyword(keyword) if keyword else self.emoji.get_random()
+            key = keyword.strip().lower() if keyword else ""
+            if key in remote_character_tags:
+                emoji = await self.emoji.get_random_any("爱弥斯")
+            elif key in remote_any_tags or not keyword:
+                emoji = await self.emoji.get_random_any(None)
+            else:
+                character = None
+                if os.getenv("WUWA_EMOJI_ENABLED", "1") == "1":
+                    try:
+                        import wuwa_emoji
+                        character = await wuwa_emoji.resolve_character(keyword)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("角色解析失败: %s", exc)
+                if character:
+                    logger.info("按角色取表情: %s", character)
+                    emoji = await self.emoji.get_random_any(character)
+                else:
+                    logger.info("标签 %s 未命中，回退全站随机", keyword)
+                    emoji = await self.emoji.get_random_any(None)
 
             if emoji:
                 logger.info("找到表情包: %s", emoji.get("name") or emoji.get("summary") or "unknown")
@@ -304,7 +335,7 @@ class MessageHandler:
 
     async def _send_group_with_emoji(self, ws, group_id: int, content: str):
         """发送带表情包的群回复"""
-        segments = self.build_segments(content)
+        segments = await self.build_segments(content)
         await ws.send_str(json.dumps({
             "action": "send_group_msg",
             "params": {"group_id": group_id, "message": segments},

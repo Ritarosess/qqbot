@@ -1,31 +1,41 @@
-"""验证纯素材包模式：扫描数量、标签命中、占位符清理"""
+"""表情库自检：远程随机、角色解析、消息段构造
+
+用法：EMOJI_DIR=/opt/qqbot/emojis python deploy/verify_emojis.py
+"""
+import asyncio
+import os
 import sys
 
 sys.path.insert(0, "/opt/qqbot")
 
+import wuwa_emoji  # noqa: E402
 from emoji_manager import EmojiManager  # noqa: E402
 from message_handler import MessageHandler  # noqa: E402
 
-emoji = EmojiManager("/opt/qqbot/emojis")
-print(f"扫描到素材包表情: {len(emoji._local_emojis)} 个")
-print(f"QQ 收藏表情(应为0): {emoji.get_qq_face_stats()['total']} 个")
 
-tags = ["开心", "喜欢", "难过", "生气", "害羞", "疑惑", "惊讶", "叹气",
-        "睡觉", "卖萌", "打钱", "工作", "偷看", "自嘲", "卡住", "等待",
-        "早安", "暧昧", "笨蛋", "happy", "sad"]
-missing = [t for t in tags if not emoji.find_by_keyword(t)]
-print(f"标签命中: {len(tags) - len(missing)}/{len(tags)}", end="")
-print(f"，未命中: {missing}" if missing else "")
+async def main():
+    chars = await wuwa_emoji.ensure_characters()
+    print(f"角色列表: {len(chars)} 个")
+    for name in ("菲比", "今汐", "达妮娅", "达尼娅", "达尼亚", "今夕",
+                 "耙耙柑", "水蜜桃", "糯糯", "娅娅", "西西", "嘻嘻", "夕夕", "汐汐", "xixi",
+                 "青霄", "来个青霄", "青霄的表情包", "嘻嘻哈哈", "不存在的角色"):
+        print(f"  解析 {name} -> {wuwa_emoji.find_character(name)}")
 
-handler = MessageHandler(None, None, emoji)
-cases = ["收到收到～ [emoji:开心]", "嗯[表情]", "在吗[emoji:不存在]", "只有[图片]",
-         "好耶[开心]", "唉[叹气]", "正常一句话"]
-for case in cases:
-    segs = handler.build_segments(case)
-    desc = []
-    for s in segs:
-        if s["type"] == "text":
-            desc.append("TEXT:" + s["data"]["text"])
-        else:
-            desc.append(s["type"].upper() + ":" + str(s["data"].get("file", ""))[-24:])
-    print(f"  {case!r:32} -> {desc}")
+    emoji = EmojiManager(os.getenv("EMOJI_DIR", "/opt/qqbot/emojis"))
+    handler = MessageHandler(None, None, emoji)
+
+    cases = ["随便来一张 [emoji]", "来张菲比 [emoji:菲比]", "来张达尼亚 [emoji:达尼亚]",
+             "来张耙耙柑 [emoji:耙耙柑]", "来张水蜜桃 [emoji:水蜜桃]", "嗯[表情]", "在吗[emoji:不存在]"]
+    for case in cases:
+        segs = await handler.build_segments(case)
+        desc = []
+        for seg in segs:
+            if seg["type"] == "text":
+                desc.append("TEXT:" + seg["data"]["text"])
+            else:
+                desc.append(seg["type"].upper() + f"({len(seg['data'].get('file', ''))}B)")
+        print(f"  {case!r:28} -> {desc}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

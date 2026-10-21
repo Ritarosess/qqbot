@@ -23,6 +23,8 @@ emojis/*.gif
 emojis/*.webp
 # 归档的旧表情不提交
 emojis/legacy/
+# 远程表情缓存
+emojis/wuwa_cache/
 
 # 压缩包
 *.zip

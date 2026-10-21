@@ -102,7 +102,8 @@ class QQBot:
             return
 
         if text == "/status":
-            reply = "运行中"
+            groups = "、".join(str(g) for g in sorted(config.GROUP_WHITELIST)) if config.GROUP_WHITELIST else "全部群"
+            reply = f"运行中｜白名单：{groups}"
         elif text.startswith("/clear"):
             try:
                 gid = int(text.split()[1])
@@ -173,7 +174,7 @@ class QQBot:
 
     async def _send_private_with_emoji(self, ws, user_id: int, content: str):
         """发送带表情包的私聊回复（复用群聊的 [emoji] 解析逻辑）"""
-        segments = self.handler.build_segments(content)
+        segments = await self.handler.build_segments(content)
         await ws.send_str(json.dumps({
             "action": "send_private_msg",
             "params": {"user_id": user_id, "message": segments},
@@ -211,7 +212,7 @@ class QQBot:
     async def _fetch_qq_collection(self):
         """获取 QQ 收藏的表情包（纯素材包模式下禁用）"""
         if os.getenv("EMOJI_QQ_FACES", "0") != "1":
-            logger.info("QQ 收藏表情已禁用（纯素材包模式）")
+            logger.info("QQ 收藏表情已禁用（使用远程表情库）")
             return
         try:
             logger.info("正在获取 QQ 收藏表情...")
@@ -241,6 +242,9 @@ class QQBot:
         """执行每日总结：为每个活跃群生成 AI 总结并发送"""
         logger.info("开始执行每日总结任务...")
         active_groups = self.conv.get_active_groups()
+        # 群白名单：非白名单群不发总结
+        if config.GROUP_WHITELIST:
+            active_groups = [g for g in active_groups if g in config.GROUP_WHITELIST]
         if not active_groups:
             logger.info("昨日无活跃群聊，跳过总结")
             return

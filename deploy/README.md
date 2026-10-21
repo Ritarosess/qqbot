@@ -34,7 +34,7 @@
 | 项 | 建议 |
 |---|---|
 | 配置 | 2 核 2G 起步（NapCat + QQ 常驻约 600–900MB） |
-| 系统盘 | 40G 以上（素材包约 40MB） |
+| 系统盘 | 40G 以上（表情缓存约 200MB） |
 | 镜像 | Ubuntu 22.04 / 24.04 / 26.04 |
 | 带宽 | 1–3 Mbps 足够 |
 
@@ -131,6 +131,15 @@ ADMIN_ID=你的QQ号
 GROUP_CHAT=1                 # 0 = 只在被 @ 时说话
 GROUP_CHAT_PROBABILITY=0.10  # 插话概率
 GROUP_CHAT_COOLDOWN=120      # 同群最短间隔（秒）
+GROUP_WHITELIST=             # 只在这些群发言，逗号分隔；留空 = 全部群
+```
+
+远程表情仓库（可选）：
+
+```ini
+WUWA_EMOJI_ENABLED=1         # 0 = 关闭表情功能
+WUWA_CHARACTER=任意           # 任意 = 全站随机；也可填角色名
+WUWA_TOKEN=                  # 站点 Token，可提高额度
 ```
 
 ### 2. 扫码登录 NapCat
@@ -163,7 +172,7 @@ sudo journalctl -u qqbot -f
 ```
 已连接
 机器人登录号: <QQ号>
-已扫描 63 个素材包表情
+QQ 收藏表情已禁用（纯素材包模式）
 ```
 
 ## 验证清单
@@ -179,7 +188,7 @@ sudo ss -lntp | grep -E '6099|3001'
 # 登录状态
 sudo /opt/qqbot/.venv/bin/python /opt/qqbot/deploy/probe_login.py
 
-# 素材包与标签
+# 表情库自检（远程取图 + 角色解析）
 sudo /opt/qqbot/.venv/bin/python /opt/qqbot/deploy/verify_emojis.py
 ```
 
@@ -212,30 +221,26 @@ sudo docker restart napcat          # 重启 NapCat（可能要求重新扫码�
 
 ## 表情包
 
-项目为**纯素材包模式**：只扫描 `emojis/` 下文件名含中文标签的图片。
+只使用远程表情库（[呜哇小站](https://emoji.wuwa.games)），本地素材包已移除。
 
-导入素材包：
+- `[emoji]` → 全站随机
+- `[emoji:角色名]` → 指定角色（如 菲比、今汐）
 
-```bash
-curl -fsSL -o /tmp/memes.tar.gz \
-  https://codeload.github.com/shirachino/astrbot-Aemeath-meme-pack/tar.gz/refs/heads/main
-mkdir -p /tmp/memes && tar -xzf /tmp/memes.tar.gz -C /tmp/memes --strip-components=1
-sudo bash /opt/qqbot/deploy/import_memes.sh /tmp/memes/memes /opt/qqbot/emojis
-sudo chown -R qqbot:qqbot /opt/qqbot/emojis
-sudo systemctl restart qqbot
+图片按需下载到 `/opt/qqbot/emojis/wuwa_cache/`（上限 200 张，单张超过 3MB 自动跳过），发送时以 base64 内嵌。
+
+```ini
+WUWA_EMOJI_ENABLED=1
+WUWA_CHARACTER=任意
+WUWA_TOKEN=...
 ```
 
-命名规则 `<中文情绪>_<英文分类>_<序号>.<扩展名>`，所以 `[emoji:开心]` 与 `[emoji:happy]` 都能命中。
+> 第三方站点素材，仅建议自用；缓存目录不要提交到 Git。
 
-可选仓库：
+自检：
 
-| 仓库 | 内容 |
-|---|---|
-| `shirachino/astrbot-Aemeath-meme-pack` | 爱弥斯（当前 63 张，CC0） |
-| `shirachino/astrbot-Phoebe-meme-pack` | 菲比啾比 |
-| `shirachino/astrbot-deepseek-meme-pack` | 大肥鱼 |
-
-> 这些是 AstrBot 插件格式的素材仓库，插件不能装在本项目，但图片可以直接导入。
+```bash
+sudo bash -c 'set -a; . /etc/qqbot/qqbot.env; set +a; EMOJI_DIR=/opt/qqbot/emojis /opt/qqbot/.venv/bin/python /opt/qqbot/deploy/verify_emojis.py'
+```
 
 ## 故障排查
 
