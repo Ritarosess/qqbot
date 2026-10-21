@@ -1,0 +1,31 @@
+[Unit]
+Description=QQ Bot - Aemeath (爱弥斯)
+Documentation=https://github.com/Ritarosess/qqbot
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=qqbot
+Group=qqbot
+WorkingDirectory=/opt/qqbot
+EnvironmentFile=/etc/qqbot/qqbot.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/qqbot/.venv/bin/python /opt/qqbot/bot.py
+Restart=always
+RestartSec=5
+
+# 日志交给 journald：journalctl -u qqbot -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qqbot
+
+# 基础加固：仅 /opt/qqbot 可写
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/qqbot
+
+[Install]
+WantedBy=multi-user.target
