@@ -80,7 +80,7 @@ class AemeathGroupChatPlugin(Star):
 
     def _history_of(self, gid: str) -> deque:
         if gid not in self._history:
-            self._history[gid] = deque(maxlen=int(self.config.get("context_size", 12)))
+            self._history[gid] = deque(maxlen=int(self.config.get("context_size", 15)))
         return self._history[gid]
 
     def _cooling(self, gid: str) -> bool:

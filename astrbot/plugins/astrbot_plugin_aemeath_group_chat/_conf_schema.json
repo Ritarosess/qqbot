@@ -15,9 +15,9 @@
     "default": 60
   },
   "context_size": {
-    "description": "插话时参考的最近消息条数，与旧版 GROUP_CHAT_CONTEXT 一致",
+    "description": "插话判断时参考的最近群消息条数",
     "type": "int",
-    "default": 12
+    "default": 15
   },
   "min_len": {
     "description": "消息短于该字数不参与判断",
