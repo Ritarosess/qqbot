@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_card
+display_name: 爱弥斯·卡片解析
+version: 0.1.0
+desc: 解析 QQ 分享卡片（B站视频/音乐等 JSON/XML），把标题和链接转成文本供对话使用
+author: Ritarosess
+repo: https://github.com/Ritarosess/qqbot

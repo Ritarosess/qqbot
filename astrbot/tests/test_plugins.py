@@ -373,6 +373,41 @@ async def main():
         text = sctx.sent[0][1].chain[0].text
         check("summary: 剔除表情标记", "[emoji]" not in text and "群聊总结" in text)
 
+    # ---------- card ----------
+    card = load_plugin("astrbot_plugin_aemeath_card")
+
+    class _RawMsg:
+        def __init__(self, segments):
+            self.message = segments
+            self.raw_message = ""
+
+    class _MsgObj:
+        def __init__(self, segments):
+            self.raw_message = _RawMsg(segments)
+            self.message_str = ""
+            self.message = []
+
+    cp = card.AemeathCardPlugin(Context(), AstrBotConfig({"enabled": True, "max_chars": 300}))
+
+    card_json = json.dumps({
+        "app": "com.tencent.structmsg",
+        "meta": {"news": {"title": "【逆天中配】神人不行 第三集", "jumpUrl": "https://b23.tv/WNx5jZq"}},
+    })
+    ev = AstrMessageEvent("")
+    ev.message_obj = _MsgObj([{"type": "json", "data": {"data": card_json}}])
+    await cp.parse_card(ev)
+    check("card: 解析标题与链接", "神人不行" in ev.message_str and "b23.tv" in ev.message_str)
+
+    ev = AstrMessageEvent("")
+    ev.message_obj = _MsgObj([{"type": "xml", "data": {"data": "<msg><item><title>测试视频</title><url>https://b23.tv/abc</url></item></msg>"}}])
+    await cp.parse_card(ev)
+    check("card: 解析 XML 卡片", "测试视频" in ev.message_str)
+
+    ev = AstrMessageEvent("你好")
+    ev.message_obj = _MsgObj([{"type": "json", "data": {"data": card_json}}])
+    await cp.parse_card(ev)
+    check("card: 有文字时跳过", ev.message_str == "你好")
+
     print(f"\n===== 通过 {len(PASS)} / {len(PASS) + len(FAIL)} =====")
     if FAIL:
         print("失败项:", FAIL)
