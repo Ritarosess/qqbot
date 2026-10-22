@@ -81,7 +81,7 @@ docker run -d --name astrbot --restart unless-stopped \
 | `aemeath_access` | 白名单存插件 KV；非白名单群 `stop_event()` |
 | `aemeath_summary` | 群消息落盘 JSONL；21:00 生成纯文字总结并主动发送 |
 | `aemeath_card` | priority=100，解析 JSON/XML 卡片为文本，修复空消息不回复 |
-| `aemeath_group_chat` | 群聊概率插话（水群）；概率 + 冷却 + AI 自判 `[skip]`；`/水群 on\|off\|prob` |
+| `aemeath_group_chat` | 群聊插话（水群）；判定与旧版一致：概率 0.2、冷却 60s、参考 12 条、AI 自判 `[skip]`；`/水群 on\|off\|prob` |
 
 ### 第三方（已装）
 

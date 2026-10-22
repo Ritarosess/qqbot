@@ -444,6 +444,14 @@ async def main():
     out = await drain(gp.maybe_join(ev))
     check("group_chat: 被 @ 时不插话", not out)
 
+    ev = AstrMessageEvent("爱弥斯 在吗", group_id="111")
+    out = await drain(gp.maybe_join(ev))
+    check("group_chat: 旧触发词开头不插话", not out)
+
+    ev = AstrMessageEvent("[图片]", group_id="111")
+    out = await drain(gp.maybe_join(ev))
+    check("group_chat: 纯图片不插话", not out)
+
     class _SkipProvider:
         async def text_chat(self, **kwargs):
             class R:

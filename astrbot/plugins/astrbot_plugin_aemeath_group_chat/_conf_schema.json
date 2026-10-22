@@ -5,17 +5,17 @@
     "default": true
   },
   "probability": {
-    "description": "每条群消息进入插话判断的概率（0~1）",
+    "description": "每条群消息进入插话判断的概率（0~1），与旧版 GROUP_CHAT_PROBABILITY 一致",
     "type": "float",
-    "default": 0.15
+    "default": 0.2
   },
   "cooldown": {
-    "description": "同一群最短插话间隔（秒）",
+    "description": "同一群最短插话间隔（秒），与旧版 GROUP_CHAT_COOLDOWN 一致",
     "type": "int",
-    "default": 120
+    "default": 60
   },
   "context_size": {
-    "description": "插话时参考的最近消息条数",
+    "description": "插话时参考的最近消息条数，与旧版 GROUP_CHAT_CONTEXT 一致",
     "type": "int",
     "default": 12
   },
@@ -25,12 +25,12 @@
     "default": 2
   },
   "max_chars": {
-    "description": "插话回复的最大字数",
+    "description": "插话回复的最大字数，0 = 不截断（与旧版一致）",
     "type": "int",
-    "default": 80
+    "default": 0
   },
   "persona": {
-    "description": "插话用的系统提示（留空使用内置精简爱弥斯人设）",
+    "description": "插话用的系统提示（留空 = 读取人设插件的完整 SYSTEM_PROMPT）",
     "type": "text",
     "default": ""
   }
