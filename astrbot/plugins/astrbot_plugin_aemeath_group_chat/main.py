@@ -23,6 +23,7 @@ import time
 from collections import deque
 from pathlib import Path
 
+import astrbot.api.message_components as Comp
 from astrbot.api import AstrBotConfig, logger
 from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star
@@ -197,5 +198,13 @@ class AemeathGroupChatPlugin(Star):
         max_chars = int(self.config.get("max_chars", 0))
         if max_chars > 0:
             reply = reply[:max_chars]
-        yield event.plain_result(reply)
+
+        # 引用触发插话的那条群消息
+        chain = []
+        raw = getattr(getattr(event, "message_obj", None), "raw_message", None)
+        mid = getattr(raw, "message_id", None)
+        if mid is not None:
+            chain.append(Comp.Reply(id=mid))
+        chain.append(Comp.Plain(reply))
+        yield event.chain_result(chain)
         event.stop_event()

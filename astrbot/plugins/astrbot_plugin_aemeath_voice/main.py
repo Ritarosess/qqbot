@@ -181,13 +181,16 @@ class AemeathVoicePlugin(Star):
             text = self._strip_markers(raw)
             if not text or len(text) > int(self.config.get("max_chars", 120)):
                 return
-            if len(chain) != len(texts):  # 含图片等富媒体时不替换，避免丢内容
+            # 含图片等富媒体时不替换，避免丢内容（Reply 引用不算富媒体）
+            rich = [seg for seg in chain if not isinstance(seg, (Comp.Plain, Comp.Reply))]
+            if rich or len([seg for seg in chain if isinstance(seg, Comp.Plain)]) != len(texts):
                 return
             if self._cooling(event.unified_msg_origin, int(self.config.get("cooldown", 10))):
                 return
 
             path = await self._synth_file(text)
-            result.chain = [Comp.Record(file=str(path), url=str(path))]
+            kept = [seg for seg in chain if isinstance(seg, Comp.Reply)]
+            result.chain = kept + [Comp.Record(file=str(path), url=str(path))]
             logger.info("[aemeath_voice] 概率语音命中: %s", text[:40])
         except Exception as exc:  # noqa: BLE001
             logger.warning("[aemeath_voice] 概率语音失败（不影响文字回复）: %s", exc)

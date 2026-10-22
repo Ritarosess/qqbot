@@ -71,8 +71,16 @@ class Record:
         return f"Record({self.file})"
 
 
+class Reply:
+    def __init__(self, id=None, **kwargs):
+        self.id = id
+
+    def __repr__(self):
+        return f"Reply({self.id})"
+
+
 comps = types.ModuleType("astrbot.api.message_components")
-comps.Plain, comps.Image, comps.Record = Plain, Image, Record
+comps.Plain, comps.Image, comps.Record, comps.Reply = Plain, Image, Record, Reply
 
 # ---- event ----
 
@@ -434,10 +442,22 @@ async def main():
     gp = group_chat.AemeathGroupChatPlugin(gctx, gcfg)
 
     ev = AstrMessageEvent("今天好热啊", group_id="111")
+
+    class _Raw:
+        def __init__(self, mid):
+            self.message_id = mid
+
+    class _Obj:
+        def __init__(self, mid):
+            self.raw_message = _Raw(mid)
+
+    ev.message_obj = _Obj("mid-123")
     out = await drain(gp.maybe_join(ev))
-    texts = [seg.text for seg in out if isinstance(seg, Plain)]
+    flat = [seg for x in out for seg in (x if isinstance(x, list) else [x])]
+    texts = [seg.text for seg in flat if isinstance(seg, Plain)]
     check("group_chat: 概率 1.0 会插话", texts and "热" in texts[0])
     check("group_chat: 插话后停止事件", ev.stopped is True)
+    check("group_chat: 插话引用原消息", bool(flat) and isinstance(flat[0], Reply) and flat[0].id == "mid-123")
 
     ev = AstrMessageEvent("@机器人 今天好热啊", group_id="111")
     ev.is_at_or_wake_command = True
