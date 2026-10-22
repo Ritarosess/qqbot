@@ -155,10 +155,10 @@ class AemeathGroupChatPlugin(Star):
         if any(low.startswith(kw) or low.startswith("@" + kw) for kw in TRIGGER_KEYWORDS):
             return
 
-        # 历史快照（旧版历史不含当前这条消息）
-        history_lines = list(self._history_of(gid))
+        # 先记录上下文（含当前这条）：插话会引用它，回复内容必须对应得上
         sender = getattr(event, "get_sender_name", lambda: "")() or "群友"
         self._history_of(gid).append(f"{sender}: {text[:120]}")
+        history_lines = list(self._history_of(gid))
 
         # 概率闸门
         prob = float(self.config.get("probability", 0.2))
