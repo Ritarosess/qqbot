@@ -1,10 +1,4 @@
-"""表情素材来源（骨架）
-
-迁移时把项目的 wuwa_emoji.py / emoji_manager.py 的下载与角色匹配逻辑搬到这里，
-对外保持 pick(keyword) -> Optional[Path] 接口即可，主插件不用改。
-
-当前实现：扫描缓存目录里的图片，按文件名/子目录名做简单匹配，够先跑通链路。
-"""
+"""本地表情缓存源：扫描缓存目录里的图片（远程失败时的兜底）"""
 import random
 from pathlib import Path
 from typing import Optional
@@ -23,7 +17,7 @@ class LocalEmojiSource:
     def count(self) -> int:
         return len(self._files())
 
-    def pick(self, keyword: Optional[str] = None) -> Optional[Path]:
+    async def pick(self, keyword: Optional[str] = None) -> Optional[Path]:
         files = self._files()
         if not files:
             return None

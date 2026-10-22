@@ -346,8 +346,11 @@ async def main():
     cache = TMP / "emoji_cache"
     cache.mkdir(parents=True, exist_ok=True)
     (cache / "菲比_开心.jpg").write_bytes(b"fake")
-    ep = emoji.AemeathEmojiPlugin(Context(), AstrBotConfig({"enabled": True, "cache_dir": str(cache), "max_per_message": 3}))
-    check("emoji: 缓存计数", ep.source.count() == 1)
+    ep = emoji.AemeathEmojiPlugin(Context(), AstrBotConfig({
+        "enabled": True, "cache_dir": str(cache), "max_per_message": 3,
+        "remote_enabled": False,
+    }))
+    check("emoji: 缓存计数", ep.local.count() == 1)
 
     ev = AstrMessageEvent("qq")
     ev.set_result(_Result([Plain("收到收到～[emoji] 交给我吧[表情]")]))
