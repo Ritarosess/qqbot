@@ -22,7 +22,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from core.cosyvoice import CosyVoice  # noqa: E402
+from aemeath_voice_core.cosyvoice import CosyVoice  # noqa: E402
 
 try:
     from astrbot.core.utils.astrbot_path import get_astrbot_data_path

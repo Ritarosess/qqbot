@@ -17,7 +17,7 @@ from astrbot.api.event import AstrMessageEvent, filter
 from astrbot.api.star import Context, Star
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from core.emoji_source import LocalEmojiSource  # noqa: E402
+from aemeath_emoji_core.emoji_source import LocalEmojiSource  # noqa: E402
 
 try:
     from astrbot.core.utils.astrbot_path import get_astrbot_data_path

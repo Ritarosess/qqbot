@@ -88,20 +88,41 @@ docker compose up -d
 
 ## 验收清单
 
+### 已在本机验证（桩环境 + 真实语音）
+
+```bash
+# 插件逻辑（不依赖 AstrBot / Docker）
+python astrbot/tests/test_plugins.py      # 22/22 通过
+
+# 真实 CosyVoice wav 合成（需 DASHSCOPE_API_KEY）
+$env:DASHSCOPE_API_KEY="sk-xxx"
+python astrbot/tests/test_tts_live.py     # PASS: RIFF/WAVE
+```
+
+| 清单项 | 状态 | 验证方式 |
+|---|---|---|
+| `/allow` 生效、非白名单群拦截 | ✅ | 桩测试 |
+| 语音前缀触发 + 停止事件（不重复回复） | ✅ | 桩测试 |
+| 显式触发发送 `Record` | ✅ | 桩测试 |
+| 概率语音替换、超长回退文字 | ✅ | 桩测试 |
+| `[emoji]` 替换为图片、`[表情]` 清理 | ✅ | 桩测试 |
+| 群消息落盘、总结生成并发送、剔除标记 | ✅ | 桩测试 |
+| CosyVoice 输出 wav（Record 前提） | ✅ | 真实 API |
+| @机器人 回复 / 人格生效 | ⏳ 待 Docker 环境 |
+| 每日 21:00 定时触发 | ⏳ 待 Docker 环境 |
+
+### 待 Docker 环境补测
+
 - [ ] @机器人 正常回复，人格生效
-- [ ] `/allow <群号>` 立即生效并写 KV；非白名单群静默
-- [ ] `/voice 你好呀` 收到 wav 语音
-- [ ] `语音 你好呀` 触发语音且不产生重复文字回复
-- [ ] 概率语音命中（日志 `概率语音命中`），超长回复回退文字
-- [ ] `[emoji]` 被替换成图片，`[表情]` 等标记不泄漏
-- [ ] 群消息被记录，`/summary` 能手动生成纯文字总结
-- [ ] 每日 21:00 定时任务触发（可临时改 hour/minute 验证）
+- [ ] NapCat 扫码 + aiocqhttp 连接 `ws://napcat:3001`
+- [ ] 每日 21:00 定时任务实际触发（可临时改 hour/minute）
+- [ ] 语音在真实 QQ 里可播放
 
 ---
 
 ## 下一步
 
-1. 先在本机 Docker 跑通验收清单
+1. 安装 Docker Desktop（本机目前未安装），`docker compose up -d` 补测剩下三项
 2. 把表情素材源接入远程仓库
 3. 评估群聊插话：内置能力 or 新插件
 4. 测试稳定后，在服务器用本目录替换现有 systemd 部署（保留旧版回滚）
