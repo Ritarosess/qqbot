@@ -36,6 +36,7 @@
 | 功能 | 说明 |
 |---|---|
 | 群聊/私聊对话 | @机器人或触发词唤醒，DeepSeek 驱动，爱弥斯人设 |
+| 群聊插话 | 群友闲聊时按概率（默认 15%）自然接话，带冷却与 AI 自判 |
 | 语音合成 | CosyVoice + 爱弥斯复刻音色，`/voice`、前缀触发、25% 概率语音 |
 | 表情包 | `[emoji]` / `[emoji:角色]` 标记替换为图片 |
 | 群白名单 | `/allow`、`/deny` 动态管理，非白名单群静默 |
@@ -97,6 +98,7 @@ ssh -i deploy\keys\aliyun_ed25519 -N -L 6185:127.0.0.1:6185 ecs-user@<ECS公网I
 | `astrbot_plugin_aemeath_voice` | CosyVoice 语音、前缀触发、概率语音 |
 | `astrbot_plugin_aemeath_emoji` | `[emoji]` 标记转图片 |
 | `astrbot_plugin_aemeath_access` | 群白名单 `/allow` `/deny` `/status` |
+| `astrbot_plugin_aemeath_group_chat` | 群聊概率插话（水群），`/水群 on|off|prob` |
 | `astrbot_plugin_aemeath_summary` | 每日总结 |
 | `astrbot_plugin_aemeath_card` | QQ 分享卡片解析（JSON/XML） |
 
@@ -137,6 +139,7 @@ ssh -i deploy\keys\aliyun_ed25519 -N -L 6185:127.0.0.1:6185 ecs-user@<ECS公网I
 | `/dls show`、`/dls full`、`/dls regen` | 查看/重生成生活状态（regen 管理员） |
 | `/dsearch <关键词>`、`/dfetch <URL>` | 联网搜索 / 抓取网页 |
 | `/summary` | 手动触发每日总结 |
+| `/水群 on|off`、`/水群 prob 0.15` | 开关/调整群聊自动插话（管理员） |
 
 ---
 

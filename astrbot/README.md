@@ -81,6 +81,7 @@ docker run -d --name astrbot --restart unless-stopped \
 | `aemeath_access` | 白名单存插件 KV；非白名单群 `stop_event()` |
 | `aemeath_summary` | 群消息落盘 JSONL；21:00 生成纯文字总结并主动发送 |
 | `aemeath_card` | priority=100，解析 JSON/XML 卡片为文本，修复空消息不回复 |
+| `aemeath_group_chat` | 群聊概率插话（水群）；概率 + 冷却 + AI 自判 `[skip]`；`/水群 on\|off\|prob` |
 
 ### 第三方（已装）
 
@@ -162,4 +163,3 @@ ssh -i deploy\keys\aliyun_ed25519 -N -L 6099:127.0.0.1:6099 ecs-user@<IP>   # 60
 1. 库街区签到插件配置账号
 2. 表情素材源接入（当前缓存为空，`[emoji]` 只会被清理）
 3. 实例升配到 4G 后，可考虑开启 gamepush 图片卡片（安装 Chromium）
-4. 群聊插话：评估 AstrBot 主动型能力或自研插件

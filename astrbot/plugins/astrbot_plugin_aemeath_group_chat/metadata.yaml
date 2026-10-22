@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_group_chat
+display_name: 爱弥斯·群聊插话
+version: 0.1.0
+desc: 群友闲聊时按概率自然接话，不必 @；带冷却与 AI 自判
+author: Ritarosess
+repo: https://github.com/Ritarosess/qqbot

@@ -1,0 +1,37 @@
+{
+  "enabled": {
+    "description": "启用群聊自动插话",
+    "type": "bool",
+    "default": true
+  },
+  "probability": {
+    "description": "每条群消息进入插话判断的概率（0~1）",
+    "type": "float",
+    "default": 0.15
+  },
+  "cooldown": {
+    "description": "同一群最短插话间隔（秒）",
+    "type": "int",
+    "default": 120
+  },
+  "context_size": {
+    "description": "插话时参考的最近消息条数",
+    "type": "int",
+    "default": 12
+  },
+  "min_len": {
+    "description": "消息短于该字数不参与判断",
+    "type": "int",
+    "default": 2
+  },
+  "max_chars": {
+    "description": "插话回复的最大字数",
+    "type": "int",
+    "default": 80
+  },
+  "persona": {
+    "description": "插话用的系统提示（留空使用内置精简爱弥斯人设）",
+    "type": "text",
+    "default": ""
+  }
+}

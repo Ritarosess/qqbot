@@ -126,12 +126,19 @@ class AstrMessageEvent:
         self.stopped = False
         self.sent = []
         self._result = None
+        self.is_at_or_wake_command = False
 
     def get_group_id(self):
         return self._group_id
 
     def get_sender_name(self):
         return self._sender
+
+    def get_sender_id(self):
+        return "10001"
+
+    def get_self_id(self):
+        return "242826716"
 
     def plain_result(self, text):
         return Plain(text)
@@ -407,6 +414,63 @@ async def main():
     ev.message_obj = _MsgObj([{"type": "json", "data": {"data": card_json}}])
     await cp.parse_card(ev)
     check("card: 有文字时跳过", ev.message_str == "你好")
+
+    # ---------- group chat ----------
+    group_chat = load_plugin("astrbot_plugin_aemeath_group_chat")
+
+    class _ChatResp:
+        completion_text = "是呀是呀，今天确实挺热的～"
+
+    class _ChatProvider:
+        async def text_chat(self, **kwargs):
+            return _ChatResp()
+
+    gcfg = AstrBotConfig({
+        "enabled": True, "probability": 1.0, "cooldown": 0,
+        "context_size": 5, "min_len": 2, "max_chars": 80, "persona": "",
+    })
+    gctx = Context()
+    gctx.provider = _ChatProvider()
+    gp = group_chat.AemeathGroupChatPlugin(gctx, gcfg)
+
+    ev = AstrMessageEvent("今天好热啊", group_id="111")
+    out = await drain(gp.maybe_join(ev))
+    texts = [seg.text for seg in out if isinstance(seg, Plain)]
+    check("group_chat: 概率 1.0 会插话", texts and "热" in texts[0])
+    check("group_chat: 插话后停止事件", ev.stopped is True)
+
+    ev = AstrMessageEvent("@机器人 今天好热啊", group_id="111")
+    ev.is_at_or_wake_command = True
+    out = await drain(gp.maybe_join(ev))
+    check("group_chat: 被 @ 时不插话", not out)
+
+    class _SkipProvider:
+        async def text_chat(self, **kwargs):
+            class R:
+                completion_text = "[skip]"
+            return R()
+
+    gctx2 = Context()
+    gctx2.provider = _SkipProvider()
+    gp2 = group_chat.AemeathGroupChatPlugin(gctx2, AstrBotConfig({
+        "enabled": True, "probability": 1.0, "cooldown": 0,
+        "context_size": 5, "min_len": 2, "max_chars": 80, "persona": "",
+    }))
+    ev = AstrMessageEvent("嗯嗯", group_id="222")
+    out = await drain(gp2.maybe_join(ev))
+    check("group_chat: [skip] 不发言", not out)
+
+    # 冷却
+    gcfg3 = AstrBotConfig({
+        "enabled": True, "probability": 1.0, "cooldown": 60,
+        "context_size": 5, "min_len": 2, "max_chars": 80, "persona": "",
+    })
+    gctx3 = Context()
+    gctx3.provider = _ChatProvider()
+    gp3 = group_chat.AemeathGroupChatPlugin(gctx3, gcfg3)
+    await drain(gp3.maybe_join(AstrMessageEvent("第一句", group_id="333")))
+    out = await drain(gp3.maybe_join(AstrMessageEvent("第二句", group_id="333")))
+    check("group_chat: 冷却内不插话", not out)
 
     print(f"\n===== 通过 {len(PASS)} / {len(PASS) + len(FAIL)} =====")
     if FAIL:
