@@ -17,8 +17,8 @@
 | 表情库 | 远程表情仓库，支持随机、点名角色、外号/谐音匹配 |
 | 语音合成 | 爱弥斯复刻音色、显式触发、**25% 概率自动语音回复** |
 | 每日总结 | 每天 21:00 为活跃群生成总结（纯文字，不含表情标记） |
-| 群白名单 | 只在指定群参与，其他群完全静默 |
-| 管理指令 | `/status`、`/help`、`/clear`、`/summary`、`/emoji`、`/voice` |
+| 群白名单 | 只在指定群参与，其他群完全静默；支持私聊 `/allow` 动态增删 |
+| 管理指令 | `/status`、`/help`、`/clear`、`/summary`、`/emoji`、`/voice`、`/allow`、`/deny` |
 
 ---
 
@@ -101,7 +101,8 @@ python bot.py
 | `GROUP_CHAT_PROBABILITY` | `0.10` | 每条群消息进入插话判断的概率 |
 | `GROUP_CHAT_COOLDOWN` | `120` | 同群最短插话间隔（秒） |
 | `GROUP_CHAT_CONTEXT` | `12` | 插话参考的最近消息条数 |
-| `GROUP_WHITELIST` | 空 | 只在这些群发言（逗号分隔）；留空 = 全部群 |
+| `GROUP_WHITELIST` | 空 | 初始白名单（逗号分隔）；留空 = 全部群 |
+| `WHITELIST_FILE` | `whitelist.json` | 运行时白名单持久化文件（`/allow`、`/deny` 修改后写入） |
 
 ### 表情
 
@@ -161,9 +162,23 @@ GROUP_CHAT=0                  # 关闭，只在被叫时说话
 
 ### 群白名单
 
+**初始配置**（环境变量）：
+
 ```ini
 GROUP_WHITELIST=753063398,123456789
 ```
+
+**运行时动态管理**（管理员私聊）：
+
+| 指令 | 作用 |
+|---|---|
+| `/allow <群号>` | 把群加入白名单，立即生效 |
+| `/allow list` | 查看当前白名单 |
+| `/deny <群号>` | 把群移出白名单 |
+
+- 修改会原子写入 `whitelist.json`，重启机器人后仍然有效
+- 首次启动时从 `GROUP_WHITELIST` 初始化，之后以文件为准
+- **白名单为空 = 对所有群生效**；`/deny` 清空后会提示，需要限制请重新 `/allow`
 
 非白名单群完全不参与：不回复、不插话、不发总结、不记录消息。私聊不受影响。
 
@@ -196,6 +211,8 @@ GROUP_WHITELIST=753063398,123456789
 | `/summary` | 手动触发一次今日总结 |
 | `/emoji` | 查看表情库状态 |
 | `/voice <文字>` | 立即发送一条语音 |
+| `/allow <群号>` | 把群加入白名单（`/allow list` 查看） |
+| `/deny <群号>` | 把群移出白名单 |
 | `/tag`、`/fetch_emoji` | 兼容旧版，默认无实际作用 |
 
 ### 每日总结
@@ -297,6 +314,7 @@ QQBOT/
 ├── prep_voice_sample.py   # 本地音频分析剪辑（选段、拼接样本，需 ffmpeg）
 ├── emoji_manager.py       # 表情管理（远程模式）
 ├── wuwa_emoji.py          # 呜哇小站 API 客户端：下载、缓存、角色匹配
+├── whitelist.py           # 运行时群白名单：/allow、/deny 增删并持久化
 ├── conversation.py        # 上下文与每日消息记录
 ├── summary_scheduler.py   # 旧版调度器（逻辑已内联到 bot.py，未引用）
 ├── requirements.txt       # aiohttp、pypinyin

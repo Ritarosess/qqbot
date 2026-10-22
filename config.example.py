@@ -38,6 +38,9 @@ GROUP_WHITELIST = {
     if x.strip().isdigit()
 }
 
+# 运行时白名单文件（/allow、/deny 修改后写入；留空则用默认 whitelist.json）
+WHITELIST_FILE = os.getenv("WHITELIST_FILE", "whitelist.json")
+
 # ===== 语音合成（千问平台 CosyVoice / MiniMax） =====
 TTS_ENABLED = os.getenv("TTS_ENABLED", "0") == "1"
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")

@@ -17,6 +17,7 @@ from conversation import ConversationManager
 from message_handler import MessageHandler
 from emoji_manager import EmojiManager
 from minimax_voice import build_tts
+import whitelist
 
 logging.basicConfig(
     level=getattr(logging, config.LOG_LEVEL, logging.INFO),
@@ -114,8 +115,9 @@ class QQBot:
             return
 
         if text == "/status":
-            groups = "、".join(str(g) for g in sorted(config.GROUP_WHITELIST)) if config.GROUP_WHITELIST else "全部群"
-            reply = f"运行中｜白名单：{groups}"
+            groups = whitelist.all_groups()
+            wl = "、".join(str(g) for g in sorted(groups)) if groups else "全部群（未限制）"
+            reply = f"运行中｜白名单：{wl}"
         elif text.startswith("/clear"):
             try:
                 gid = int(text.split()[1])
@@ -123,10 +125,41 @@ class QQBot:
                 reply = f"已清空群 {gid} 的上下文"
             except (IndexError, ValueError):
                 reply = "用法: /clear <群号>"
+        elif text.startswith("/allow"):
+            arg = text[len("/allow"):].strip()
+            if arg in ("", "list", "列表"):
+                groups = whitelist.all_groups()
+                reply = (
+                    "白名单：" + "、".join(str(g) for g in sorted(groups))
+                    if groups else "白名单为空（对所有群生效）"
+                )
+            elif arg.isdigit():
+                gid = int(arg)
+                if whitelist.add(gid):
+                    reply = f"已把群 {gid} 加入白名单（当前 {len(whitelist.all_groups())} 个）\n之后这个群的消息我才会处理～"
+                else:
+                    reply = f"群 {gid} 已经在白名单里啦"
+            else:
+                reply = "用法: /allow <群号>\n/allow list  查看白名单"
+        elif text.startswith("/deny"):
+            arg = text[len("/deny"):].strip()
+            if not arg.isdigit():
+                reply = "用法: /deny <群号>"
+            elif whitelist.remove(int(arg)):
+                gid = int(arg)
+                remain = whitelist.all_groups()
+                reply = (
+                    f"已把群 {gid} 移出白名单（剩余 {len(remain)} 个）"
+                    if remain else
+                    f"已把群 {gid} 移出白名单。⚠️ 白名单已为空，现在对所有群生效，需要限制请再 /allow"
+                )
+            else:
+                reply = f"群 {arg} 不在白名单里"
         elif text == "/help":
             reply = (
                 "/status  状态\n/clear <群号>  清空上下文\n/summary  手动触发今日总结\n"
-                "/emoji  查看表情包列表\n/voice <文字>  发送语音\n\n"
+                "/emoji  查看表情包列表\n/voice <文字>  发送语音\n"
+                "/allow <群号>  把群加入白名单；/allow list 查看；/deny <群号> 移出\n\n"
                 "语音触发（私聊/群里都能用）：\n"
                 "  语音 你好呀 / 朗读 今天天气不错 / 念一遍 晚安\n"
                 "  说 你好、念：晚安（单字前缀需带空格或冒号）\n"
@@ -293,8 +326,8 @@ class QQBot:
         logger.info("开始执行每日总结任务...")
         active_groups = self.conv.get_active_groups()
         # 群白名单：非白名单群不发总结
-        if config.GROUP_WHITELIST:
-            active_groups = [g for g in active_groups if g in config.GROUP_WHITELIST]
+        if whitelist.has_restriction():
+            active_groups = [g for g in active_groups if whitelist.allowed(g)]
         if not active_groups:
             logger.info("昨日无活跃群聊，跳过总结")
             return

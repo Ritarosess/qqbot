@@ -149,8 +149,11 @@ ADMIN_ID=你的QQ号
 GROUP_CHAT=1                 # 0 = 只在被 @ 时说话
 GROUP_CHAT_PROBABILITY=0.10  # 插话概率
 GROUP_CHAT_COOLDOWN=120      # 同群最短间隔（秒）
-GROUP_WHITELIST=             # 只在这些群发言，逗号分隔；留空 = 全部群
+GROUP_WHITELIST=             # 初始白名单，逗号分隔；留空 = 全部群
 ```
+
+> 白名单支持**私聊动态管理**：`/allow <群号>` 加入、`/deny <群号>` 移出、`/allow list` 查看。
+> 修改会写入项目目录下的 `whitelist.json`（部署不会覆盖该文件），重启后保持。
 
 远程表情仓库（可选）：
 

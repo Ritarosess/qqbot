@@ -13,6 +13,7 @@ from ai_client import AIClient
 from conversation import ConversationManager
 from emoji_manager import EmojiManager
 import config
+import whitelist
 
 logger = logging.getLogger("handler")
 
@@ -176,7 +177,7 @@ class MessageHandler:
         group_id = event["group_id"]
 
         # 群白名单：不在名单里的群完全不参与（不记录、不回复、不插话）
-        if config.GROUP_WHITELIST and group_id not in config.GROUP_WHITELIST:
+        if not whitelist.allowed(group_id):
             logger.debug("群 %d 不在白名单，忽略", group_id)
             return
 

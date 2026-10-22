@@ -109,6 +109,8 @@ $parent = Split-Path $ProjectRoot -Leaf
     --exclude "$parent/*.wav" `
     --exclude "$parent/*.mp3" `
     --exclude "$parent/emojis.json" `
+    --exclude "$parent/whitelist.json" `
+    --exclude "$parent/whitelist.json.tmp" `
     -C (Split-Path $ProjectRoot -Parent) $parent
 if ($LASTEXITCODE -ne 0) { throw "打包失败" }
 $size = "{0:N2} MB" -f ((Get-Item $Archive).Length / 1MB)

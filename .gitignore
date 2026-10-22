@@ -50,6 +50,7 @@ id_rsa
 
 # 运行时数据
 emojis.json
+whitelist.json
 *.sqlite3
 data/
 
