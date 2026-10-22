@@ -237,9 +237,6 @@ sudo ss -lntp | grep -E '6099|3001'
 # 登录状态
 sudo /opt/qqbot/.venv/bin/python /opt/qqbot/deploy/probe_login.py
 
-# 表情库自检（远程取图 + 角色解析）
-sudo /opt/qqbot/.venv/bin/python /opt/qqbot/deploy/verify_emojis.py
-
 # 语音链路自检（读取 env 后真实合成一条）
 sudo -n bash -c 'set -a; . /etc/qqbot/qqbot.env; set +a; /opt/qqbot/.venv/bin/python /opt/qqbot/deploy/server_tts_check.py'
 ```
