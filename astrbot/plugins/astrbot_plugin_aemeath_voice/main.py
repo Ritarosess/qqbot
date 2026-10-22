@@ -166,7 +166,19 @@ class AemeathVoicePlugin(Star):
                 return
             chain = getattr(result, "chain", [])
             texts = [seg.text for seg in chain if isinstance(seg, Comp.Plain)]
-            text = self._strip_markers("".join(texts))
+            raw = "".join(texts)
+
+            # 表情包回复交给表情插件处理，转语音会丢失图片
+            if re.search(r"\[emoji", raw, re.IGNORECASE):
+                return
+            # 插件进度/状态提示（正在生成、请稍候等）不转语音
+            if re.search(
+                r"正在(生成|准备|处理|加载|下载|转码|查询|搜索)|请稍候|处理中|生成中|准备中|稍等",
+                raw,
+            ):
+                return
+
+            text = self._strip_markers(raw)
             if not text or len(text) > int(self.config.get("max_chars", 120)):
                 return
             if len(chain) != len(texts):  # 含图片等富媒体时不替换，避免丢内容

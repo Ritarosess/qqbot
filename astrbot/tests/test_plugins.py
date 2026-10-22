@@ -314,6 +314,18 @@ async def main():
     await vp.maybe_voice_reply(ev)
     check("voice: 超长回退文字", isinstance(ev.get_result().chain[0], Plain))
 
+    # 表情包回复不转语音（交给表情插件发图）
+    ev = AstrMessageEvent("qq")
+    ev.set_result(_Result([Plain("给你～[emoji]")]))
+    await vp.maybe_voice_reply(ev)
+    check("voice: 表情包回复不转语音", isinstance(ev.get_result().chain[0], Plain))
+
+    # 插件进度提示不转语音
+    ev = AstrMessageEvent("qq")
+    ev.set_result(_Result([Plain("今天的状态尚未生成，正在生成…")]))
+    await vp.maybe_voice_reply(ev)
+    check("voice: 状态提示不转语音", isinstance(ev.get_result().chain[0], Plain))
+
     # ---------- emoji ----------
     emoji = load_plugin("astrbot_plugin_aemeath_emoji")
     cache = TMP / "emoji_cache"
