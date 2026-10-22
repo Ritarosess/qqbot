@@ -358,6 +358,12 @@ async def main():
     await vp.maybe_voice_reply(ev)
     check("voice: 状态提示不转语音", isinstance(ev.get_result().chain[0], Plain))
 
+    # 含链接的回复不转语音（点歌分享等）
+    ev = AstrMessageEvent("qq")
+    ev.set_result(_Result([Plain("🎵 纸飞机 - 林忆莲\nhttps://music.163.com/song?id=256343")]))
+    await vp.maybe_voice_reply(ev)
+    check("voice: 链接回复不转语音", isinstance(ev.get_result().chain[0], Plain))
+
     # ---------- emoji ----------
     emoji = load_plugin("astrbot_plugin_aemeath_emoji")
     cache = TMP / "emoji_cache"

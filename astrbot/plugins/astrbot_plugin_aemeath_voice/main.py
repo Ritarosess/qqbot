@@ -177,6 +177,9 @@ class AemeathVoicePlugin(Star):
                 raw,
             ):
                 return
+            # 含链接的回复不转语音（点歌分享、卡片链接等，避免把 URL 念出来）
+            if re.search(r"https?://", raw):
+                return
 
             text = self._strip_markers(raw)
             if not text or len(text) > int(self.config.get("max_chars", 120)):

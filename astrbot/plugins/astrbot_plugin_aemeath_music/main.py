@@ -100,6 +100,8 @@ class AemeathMusicPlugin(Star):
         self._last[key] = now
 
         songs = await self.search(keyword, limit=int(self.config.get("limit", 5)))
+        # 点歌结果不转语音（链接/歌名念出来没意义）
+        event._aemeath_voice_sent = True
         if not songs:
             yield event.plain_result(f"唔…没搜到《{keyword}》，换个名字试试？")
             return
