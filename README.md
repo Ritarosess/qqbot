@@ -327,6 +327,7 @@ QQBOT/
 │   ├── probe_login.py     # 登录状态自检
 │   └── verify_emojis.py   # 表情库自检
 ├── tools/                 # 文档提取辅助脚本
+├── astrbot/               # AstrBot 重构实验：插件骨架与 compose（见 astrbot/README.md）
 ├── 人格提示词/            # 人设原始文档
 ├── 声音素材/              # 复刻素材（不入库、不部署）
 └── README.md
@@ -348,6 +349,10 @@ python bot.py
 ### 服务器部署
 
 阿里云 ECS + Docker + systemd 的完整方案见 **[deploy/README.md](deploy/README.md)**，包含一键脚本、扫码登录、语音配置与故障排查。
+
+### AstrBot 重构（实验）
+
+基于 AstrBot 的插件化重构方案在 **[astrbot/README.md](astrbot/README.md)**：包含 Docker 编排、4 个插件骨架（白名单/语音/表情/总结）与验收清单。与现有部署互不影响，可并行验证。
 
 ### 交给 AI 部署
 

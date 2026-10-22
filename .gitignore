@@ -54,6 +54,10 @@ whitelist.json
 *.sqlite3
 data/
 
+# AstrBot 重构实验：运行数据与 NapCat 数据不入库
+astrbot/data/
+astrbot/napcat-data/
+
 # 语音素材与产物（复刻样本，体积大且不进 Git / 部署包）
 声音素材/
 *.wav

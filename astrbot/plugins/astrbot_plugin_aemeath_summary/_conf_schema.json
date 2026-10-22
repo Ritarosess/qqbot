@@ -1,0 +1,27 @@
+{
+  "record_enabled": {
+    "description": "记录群消息用于总结",
+    "type": "bool",
+    "default": true
+  },
+  "hour": {
+    "description": "每日总结时间（小时，0-23）",
+    "type": "int",
+    "default": 21
+  },
+  "minute": {
+    "description": "每日总结时间（分钟，0-59）",
+    "type": "int",
+    "default": 0
+  },
+  "min_messages": {
+    "description": "消息少于该数量则跳过总结",
+    "type": "int",
+    "default": 5
+  },
+  "persona": {
+    "description": "生成总结时使用的系统提示（留空则用 AstrBot 当前人格）",
+    "type": "string",
+    "default": ""
+  }
+}

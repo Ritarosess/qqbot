@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_emoji
+display_name: 爱弥斯·表情包
+version: 0.1.0
+desc: 把回复中的 [emoji]/[emoji:角色] 标记替换为表情图片
+author: Ritarosess
+repo: https://github.com/Ritarosess/qqbot

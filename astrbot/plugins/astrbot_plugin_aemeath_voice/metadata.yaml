@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_voice
+display_name: 爱弥斯·语音
+version: 0.1.0
+desc: CosyVoice 语音合成：/voice 指令、前缀触发、25% 概率语音回复
+author: Ritarosess
+repo: https://github.com/Ritarosess/qqbot

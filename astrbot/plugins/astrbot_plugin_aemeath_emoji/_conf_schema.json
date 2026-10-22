@@ -1,0 +1,17 @@
+{
+  "enabled": {
+    "description": "启用表情替换",
+    "type": "bool",
+    "default": true
+  },
+  "cache_dir": {
+    "description": "表情缓存目录",
+    "type": "string",
+    "default": ""
+  },
+  "max_per_message": {
+    "description": "单条消息最多表情数量",
+    "type": "int",
+    "default": 3
+  }
+}

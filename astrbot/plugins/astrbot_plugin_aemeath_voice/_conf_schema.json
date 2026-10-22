@@ -1,0 +1,63 @@
+{
+  "enabled": {
+    "description": "启用语音功能",
+    "type": "bool",
+    "default": true
+  },
+  "api_key": {
+    "description": "千问 AI 平台 API Key",
+    "type": "string",
+    "default": "",
+    "hint": "填写后重启本插件生效"
+  },
+  "model": {
+    "description": "语音模型",
+    "type": "string",
+    "default": "cosyvoice-v3.5-flash"
+  },
+  "voice": {
+    "description": "音色 ID（复刻音色或系统音色）",
+    "type": "string",
+    "default": "cosyvoice-v3.5-flash-aemeath-59638a19c09243cabf1144ce1be23d28"
+  },
+  "ws_url": {
+    "description": "CosyVoice WebSocket 地址",
+    "type": "string",
+    "default": "wss://maas.qianwenaiapi.com/api-ws/v1/inference"
+  },
+  "format": {
+    "description": "音频格式（AstrBot Record 只稳定支持 wav）",
+    "type": "string",
+    "default": "wav"
+  },
+  "sample_rate": {
+    "description": "采样率",
+    "type": "int",
+    "default": 22050
+  },
+  "prefixes": {
+    "description": "语音触发前缀（单字前缀需带空格/冒号等分隔符）",
+    "type": "list",
+    "default": ["语音", "说", "念", "读", "朗读", "用语音说", "发语音", "语音回复", "读一下", "念一下", "念一遍", "朗读一下", "用声音"]
+  },
+  "probability": {
+    "description": "普通回复改为语音的概率（0~1，0 关闭）",
+    "type": "float",
+    "default": 0.25
+  },
+  "max_chars": {
+    "description": "概率语音最大字数，超长回退文字",
+    "type": "int",
+    "default": 120
+  },
+  "cooldown": {
+    "description": "同会话语音冷却（秒）",
+    "type": "int",
+    "default": 10
+  },
+  "timeout": {
+    "description": "合成超时（秒）",
+    "type": "int",
+    "default": 60
+  }
+}
