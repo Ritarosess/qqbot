@@ -14,7 +14,9 @@ import importlib.util
 import json
 import shutil
 import sys
+import time
 import types
+from collections import deque
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -79,8 +81,16 @@ class Reply:
         return f"Reply({self.id})"
 
 
+class Poke:
+    def __init__(self, id=None, **kwargs):
+        self.id = id
+
+    def __repr__(self):
+        return f"Poke({self.id})"
+
+
 comps = types.ModuleType("astrbot.api.message_components")
-comps.Plain, comps.Image, comps.Record, comps.Reply = Plain, Image, Record, Reply
+comps.Plain, comps.Image, comps.Record, comps.Reply, comps.Poke = Plain, Image, Record, Reply, Poke
 
 # ---- event ----
 
@@ -116,6 +126,10 @@ class _Filter:
 
     @staticmethod
     def on_astrbot_loaded(*a, **k):
+        return lambda f: f
+
+    @staticmethod
+    def llm_tool(*a, **k):
         return lambda f: f
 
 
@@ -159,6 +173,9 @@ class AstrMessageEvent:
 
     def get_result(self):
         return self._result
+
+    def get_messages(self):
+        return getattr(self, "_messages", [])
 
     def set_result(self, result):
         self._result = result
@@ -502,6 +519,61 @@ async def main():
     await drain(gp3.maybe_join(AstrMessageEvent("第一句", group_id="333")))
     out = await drain(gp3.maybe_join(AstrMessageEvent("第二句", group_id="333")))
     check("group_chat: 冷却内不插话", not out)
+
+    # ---------- poke ----------
+    poke = load_plugin("astrbot_plugin_aemeath_poke")
+    pp = poke.AemeathPokePlugin(Context(), AstrBotConfig({"enabled": True, "cooldown": 0, "replies": []}))
+    ev = AstrMessageEvent("")
+    ev._messages = [Poke(id="242826716")]  # stub 的 self_id
+    out = await drain(pp.on_poke(ev))
+    check("poke: 戳机器人会回应", any(isinstance(x, Plain) for x in out))
+    ev = AstrMessageEvent("")
+    ev._messages = [Poke(id="999")]
+    out = await drain(pp.on_poke(ev))
+    check("poke: 戳别人不回应", not out)
+
+    # ---------- music ----------
+    music = load_plugin("astrbot_plugin_aemeath_music")
+    mp = music.AemeathMusicPlugin(Context(), AstrBotConfig({
+        "enabled": True, "prefixes": ["演奏", "来一首"], "limit": 5, "cooldown": 0,
+    }))
+
+    async def fake_search(kw, limit=5):
+        return [{"id": 123, "name": "纸飞机", "artist": "爱弥斯"}]
+
+    mp.search = fake_search
+    ev = AstrMessageEvent("演奏 纸飞机")
+    out = await drain(mp.on_request(ev))
+    txt = "".join(x.text for x in out if isinstance(x, Plain))
+    check("music: 触发并分享链接", "music.163.com/song?id=123" in txt and "纸飞机" in txt)
+    ev = AstrMessageEvent("今天演奏会取消了吗")
+    out = await drain(mp.on_request(ev))
+    check("music: 非触发不分享", not out)
+
+    # ---------- group_chat 冷群间隔 ----------
+    class _CapProvider:
+        def __init__(self):
+            self.prompts = []
+
+        async def text_chat(self, **kw):
+            self.prompts.append(kw.get("prompt", ""))
+            return _ChatResp()
+
+    cap = _CapProvider()
+    gctx4 = Context()
+    gctx4.provider = cap
+    gcfg4 = AstrBotConfig({
+        "enabled": True, "probability": 1.0, "cooldown": 0, "context_size": 15,
+        "min_len": 2, "max_chars": 0, "persona": "", "gap_minutes": 30,
+    })
+    gp4 = group_chat.AemeathGroupChatPlugin(gctx4, gcfg4)
+    await drain(gp4.maybe_join(AstrMessageEvent("旧话题甲", group_id="444")))
+    gp4._history["444"] = deque(
+        [(time.time() - 7200, ln) for _, ln in gp4._history["444"]], maxlen=15
+    )
+    await drain(gp4.maybe_join(AstrMessageEvent("新话题乙", group_id="444")))
+    last_prompt = cap.prompts[-1]
+    check("group_chat: 冷群后清空旧上下文", "旧话题甲" not in last_prompt and "新话题乙" in last_prompt)
 
     print(f"\n===== 通过 {len(PASS)} / {len(PASS) + len(FAIL)} =====")
     if FAIL:

@@ -19,6 +19,11 @@
     "type": "int",
     "default": 15
   },
+  "gap_minutes": {
+    "description": "群消息间隔超过该分钟数视为新对话，清空旧上下文（防止冷群后引用/回复错位）",
+    "type": "float",
+    "default": 30
+  },
   "min_len": {
     "description": "消息短于该字数不参与判断",
     "type": "int",

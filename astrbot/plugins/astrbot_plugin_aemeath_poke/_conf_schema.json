@@ -1,0 +1,17 @@
+{
+  "enabled": {
+    "description": "启用戳一戳回应",
+    "type": "bool",
+    "default": true
+  },
+  "cooldown": {
+    "description": "同一人连续戳的回应冷却（秒）",
+    "type": "int",
+    "default": 10
+  },
+  "replies": {
+    "description": "回应文案列表（留空用内置）",
+    "type": "list",
+    "default": []
+  }
+}

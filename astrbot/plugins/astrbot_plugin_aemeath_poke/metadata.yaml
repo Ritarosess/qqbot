@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_poke
+display_name: 爱弥斯·戳一戳
+version: 0.1.0
+desc: QQ 戳一戳机器人时回一句俏皮话
+author: Ritarosess
+repo: https://github.com/Ritarosess/qqbot

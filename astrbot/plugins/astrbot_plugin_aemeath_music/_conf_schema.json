@@ -1,0 +1,22 @@
+{
+  "enabled": {
+    "description": "启用网易云点歌分享",
+    "type": "bool",
+    "default": true
+  },
+  "prefixes": {
+    "description": "触发前缀",
+    "type": "list",
+    "default": ["演奏", "演奏一下", "来一首", "点一首"]
+  },
+  "limit": {
+    "description": "搜索返回条数（取第一条分享）",
+    "type": "int",
+    "default": 5
+  },
+  "cooldown": {
+    "description": "同一会话点歌冷却（秒）",
+    "type": "int",
+    "default": 5
+  }
+}

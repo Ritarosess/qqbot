@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_music
+display_name: 爱弥斯·网易云点歌
+version: 0.1.0
+desc: 「演奏/来一首/点一首 xxx」搜索网易云并分享歌曲链接；带 LLM 工具
+author: Ritarosess
+repo: https://github.com/Ritarosess/qqbot

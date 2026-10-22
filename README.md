@@ -46,6 +46,8 @@
 | B 站点播 | 搜索并发送视频/音频，支持语音与文件 |
 | 联网搜索 | DeepSeek 官方 Search/Fetch，模型可主动检索 |
 | 卡片解析 | B 站分享卡片转文本，避免空消息不回复 |
+| 戳一戳回应 | QQ 戳机器人时回俏皮话（带冷却） |
+| 网易云点歌 | 「演奏/来一首 xxx」搜索并分享歌曲链接 |
 
 ---
 
@@ -99,6 +101,8 @@ ssh -i deploy\keys\aliyun_ed25519 -N -L 6185:127.0.0.1:6185 ecs-user@<ECS公网I
 | `astrbot_plugin_aemeath_emoji` | `[emoji]` 标记转图片 |
 | `astrbot_plugin_aemeath_access` | 群白名单 `/allow` `/deny` `/status` |
 | `astrbot_plugin_aemeath_group_chat` | 群聊概率插话（水群），`/水群 on|off|prob` |
+| `astrbot_plugin_aemeath_poke` | 戳一戳机器人回俏皮话 |
+| `astrbot_plugin_aemeath_music` | 「演奏/来一首 xxx」搜网易云分享歌曲链接 |
 | `astrbot_plugin_aemeath_summary` | 每日总结 |
 | `astrbot_plugin_aemeath_card` | QQ 分享卡片解析（JSON/XML） |
 
