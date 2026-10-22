@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_persona
+display_name: 爱弥斯·人设
+version: 0.1.0
+desc: 每轮请求注入爱弥斯人格提示词
+author: Ritarosess
+repo: https://github.com/Ritarosess/qqbot

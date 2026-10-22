@@ -1,4 +1,8 @@
-# 部署到阿里云 ECS
+# 部署到阿里云 ECS（旧版 bot.py，仅回滚用）
+
+> ⚠️ **本文档描述的是旧版 systemd + `bot.py` 部署，已被 AstrBot 架构取代。**
+> 当前线上运行的是 AstrBot + NapCat，见 [../astrbot/README.md](../astrbot/README.md)。
+> 本文仅保留用于回滚与历史参考。
 
 面向 Ubuntu 的服务器部署与运维手册。部署脚本对 Debian / CentOS 系也做了兼容，但本文以 Ubuntu 为准。
 
