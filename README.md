@@ -1,8 +1,8 @@
 # 爱弥斯 QQ 机器人
 
-基于 **AstrBot + NapCat** 的 QQ 机器人，人格是《鸣潮》的**爱弥斯（Aemeath）**。线上部署在阿里云 ECS，支持对话、语音、表情、群白名单、每日总结、动态生活状态、游戏版本推送、B 站点播与联网搜索。
+基于 **AstrBot + NapCat** 的 QQ 机器人，人格是《鸣潮》的**爱弥斯（Aemeath）**。线上部署在阿里云 ECS，支持对话、语音、表情、群白名单、每日总结、动态生活状态、游戏版本推送、B 站点播、联网搜索与鸣潮 WIKI 查询（B站WIKI + 库街区双数据源）。
 
-> 本仓库同时保留早期自研 `bot.py` 版本（systemd 部署），仅用于回滚。日常开发与运维请看 [astrbot/README.md](astrbot/README.md)。
+> 本仓库同时保留早期自研 `bot.py` 版本（systemd 部署），仅用于回滚。日常开发与运维请看 [astrbot/README.md](astrbot/README.md)，功能变更历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
