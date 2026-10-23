@@ -626,6 +626,8 @@ async def main():
     check("wiki: 材料段完整", "龙吐珠×60" in sec and "贝币×173万" in sec and "技能满级" in sec)
     sec = "\n".join(wiki.build_material_section({"ascension_totals": {}, "skill_totals": {}}))
     check("wiki: 材料缺失如实标注", sec.count("暂未收录") == 2 and "未计入" in sec)
+    sec = "\n".join(wiki.build_material_section({"name": "爱弥斯", "ascension_totals": {}, "skill_totals": {}}))
+    check("wiki: 缺失时指向库街区", "/材料 爱弥斯" in sec)
 
     rec = wiki.build_weapon_rec_section(
         {"weapon": "迅刀"},
@@ -781,6 +783,125 @@ async def main():
     wp.client.wikitext = empty_wikitext
     text, _ = await wp.lookup("爱弥斯")
     check("wiki: 资料缓存命中不再请求网络", "爱弥斯" in text and "热熔" in text)
+
+    # ---------- kurobbs（库街区） ----------
+    kurobbs = load_plugin("astrbot_plugin_aemeath_kurobbs")
+
+    kb_search = [
+        {"name": "今汐", "entryId": 1249040336606580736, "previewEntryId": "",
+         "category": "全部 / 游戏图鉴 / 共鸣者", "catId": 1105},
+        {"name": "今汐", "entryId": 18963, "previewEntryId": "1331088925953253376",
+         "category": "全部 / 攻略合集 / 角色攻略", "catId": 1384},
+        {"name": "【WIKI】今汐角色攻略", "entryId": 1331088925953253376, "previewEntryId": "",
+         "category": "全部 / 攻略合集 / 角色攻略 / 今汐", "catId": 1565},
+        {"name": "萌新今汐攻略", "entryId": 21566, "previewEntryId": "",
+         "category": "全部 / 攻略合集 / 角色攻略 / 今汐", "catId": 1565},
+    ]
+    codex = kurobbs.pick_entry(kb_search, "今汐", "codex")
+    check("kurobbs: 图鉴词条选取", codex and codex["entryId"] == "1249040336606580736")
+    guide = kurobbs.pick_entry(kb_search, "今汐", "guide")
+    check("kurobbs: 攻略优先官方WIKI正文", guide and guide["entryId"] == "1331088925953253376")
+    guide2 = kurobbs.pick_entry([kb_search[1]], "今汐", "guide")
+    check("kurobbs: 占位卡片走 previewEntryId", guide2 and guide2["entryId"] == "1331088925953253376")
+
+    asc_md = (
+        "### 角色突破材料\n\n#### 一阶突破\n"
+        "| [低频啸叫声核](https://wiki.kurobbs.com/mc/item/111)x4 | [贝币](https://wiki.kurobbs.com/mc/item/222)x5000 |\n\n"
+        "#### 二阶突破\n"
+        "| [](https://wiki.kurobbs.com/mc/item/333)[中频啸叫声核](https://wiki.kurobbs.com/mc/item/444)x4 | [龙吐珠](https://wiki.kurobbs.com/mc/item/555)x4 |\n"
+        "| [哀歌声核](https://wiki.kurobbs.com/mc/item/666)x3 | [贝币](https://wiki.kurobbs.com/mc/item/222)x10000 |\n"
+    )
+    totals = kurobbs.parse_material_totals(asc_md)
+    check("kurobbs: 突破材料汇总", totals == {"低频啸叫声核": 4, "中频啸叫声核": 4,
+                                          "龙吐珠": 4, "哀歌声核": 3, "贝币": 15000})
+    check("kurobbs: 合计排版", kurobbs.format_totals(totals).endswith("贝币×1.5万"))
+
+    weapon_md = (
+        "## 武器推荐\n\n#### 主流武器\n"
+        "| **武器推荐 ** | [](https://u/1) [](https://u/2) "
+        "[时和岁稔](https://u/1)> [苍鳞千嶂](https://u/2)> [浩境粼光](https://u/3)> [纹秋](https://u/4) 无特别说明，武器默认1阶 |\n"
+        "| [](https://u/1) | [**承天之佑**](https://u/1) 谐振(**1/2/3/4/5**)阶 全属性伤害加成提升 |\n"
+    )
+    check("kurobbs: 武器排名提取",
+          kurobbs.extract_weapon_rank(weapon_md) == "时和岁稔 > 苍鳞千嶂 > 浩境粼光 > 纹秋")
+
+    echo_md = (
+        "#### 主流声骸\n"
+        "| [](https://u/9) [**浮星祛暗**](https://u/9) | [](https://u/8) |\n"
+        "| --- | --- |\n"
+        "| **COST分配** | **毕业：43311** |\n"
+        "| **COST主词条** | **COST4：**暴击 **/** 暴击伤害 **COST3：**双衍射伤害加成 **COST1：**攻击 |\n"
+    )
+    echo = kurobbs.extract_echo(echo_md)
+    check("kurobbs: 声骸提取", echo["set"] == "浮星祛暗" and echo["cost"] == "43311"
+          and "C4：暴击/暴击伤害" in echo["main"])
+
+    teams_md = (
+        "| **队伍组成** | **[今汐](https://u/1)+[折枝](https://u/2)+[守岸人](https://u/3)/[维里奈](https://u/4)"
+        " ----- [今汐](https://u/1)+[渊武](https://u/5)+[守岸人](https://u/3)/[维里奈](https://u/4)"
+        " ----- [今汐](https://u/1)+[莫特斐](https://u/6)+[鉴心](https://u/7)** |\n"
+    )
+    teams = kurobbs.extract_teams(teams_md)
+    check("kurobbs: 主流队伍提取", teams[0] == "今汐+折枝+守岸人/维里奈" and len(teams) == 3)
+
+    team_cli = (
+        "[probe] 检查 折枝 画像...\n"
+        "# 今汐 最佳组队 Top2\n> 角色池来源：手动指定（3 名）\n\n"
+        "🥇 **今汐 + 折枝 + 维里奈**  [🔵引擎推断]\n   🎯 增益主C清单：\n\n"
+        "🥈 **今汐 + 折枝 + 守岸人**  [🟡混合] 📚https://wiki.kurobbs.com/mc/item/123\n"
+    )
+    parsed = kurobbs.parse_team_output(team_cli)
+    check("kurobbs: 配队输出解析", len(parsed) == 2 and parsed[0]["team"] == "今汐 + 折枝 + 维里奈"
+          and parsed[1]["url"] == "https://wiki.kurobbs.com/mc/item/123")
+
+    kp = kurobbs.AemeathKurobbsPlugin(Context(), AstrBotConfig({
+        "enabled": True, "timeout": 5, "team_timeout": 5, "top_teams": 3,
+        "cooldown": 0, "cache_hours": 24, "cache_dir": str(TMP / "kb_cache"),
+    }))
+
+    kb_calls = []
+
+    async def fake_run(args, timeout=None):
+        kb_calls.append(list(args))
+        if args[0] == "search":
+            return json.dumps(kb_search, ensure_ascii=False)
+        if args[0] == "detail":
+            return {"角色突破材料": asc_md, "武器推荐": weapon_md,
+                    "声骸套装推荐": echo_md, "编队&队伍轴推荐": teams_md}.get(args[3], "")
+        if args[0] == "team":
+            return team_cli
+        return ""
+
+    kp._run = fake_run
+
+    text = await kp.query_materials("今汐")
+    check("kurobbs: 材料卡片", "低频啸叫声核×4" in text and "贝币×1.5万" in text
+          and "wiki.kurobbs.com/mc/item/1249040336606580736" in text)
+
+    text = await kp.query_materials("小爱")
+    check("kurobbs: 别名解析", "爱弥斯" in text and kb_calls[-1][1] == "爱弥斯")
+
+    text = await kp.query_guide("今汐")
+    check("kurobbs: 攻略卡片", "时和岁稔 > 苍鳞千嶂" in text and "浮星祛暗" in text
+          and "毕业43311" in text and "今汐+折枝+守岸人/维里奈" in text and "仅供当期参考" in text)
+
+    text = await kp.query_team("今汐", "折枝,维里奈")
+    check("kurobbs: 配队卡片", "🥇" in text and "今汐 + 折枝 + 维里奈" in text)
+    check("kurobbs: 配队用指定池", any(a[0] == "team" and "--pool" in a for a in kb_calls))
+    await kp.query_team("今汐")
+    check("kurobbs: 无池子用攻略补池", "--guide-pool" in kb_calls[-1])
+
+    text = await kp.query_search("今汐")
+    check("kurobbs: 搜索列表", "游戏图鉴 / 共鸣者" in text and "wiki.kurobbs.com/mc/item/" in text)
+
+    ev = AstrMessageEvent("/材料 今汐")
+    out = await drain(kp.cmd_materials(ev))
+    flat = [seg for x in out for seg in (x if isinstance(x, list) else [x])]
+    txt = "".join(seg.text for seg in flat if isinstance(seg, Plain))
+    check("kurobbs: /材料 指令", "低频啸叫声核×4" in txt)
+
+    tool_text = await kp.kurobbs_tool(AstrMessageEvent(""), "今汐", "突破材料")
+    check("kurobbs: LLM 工具", "低频啸叫声核×4" in tool_text)
 
     # ---------- group_chat 冷群间隔 ----------
     class _CapProvider:

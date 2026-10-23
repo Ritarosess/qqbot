@@ -19,7 +19,8 @@ astrbot/
 │   ├── astrbot_plugin_aemeath_access/  # 群白名单
 │   ├── astrbot_plugin_aemeath_summary/ # 每日总结
 │   ├── astrbot_plugin_aemeath_card/    # 卡片消息解析
-│   └── astrbot_plugin_aemeath_wiki/    # 鸣潮WIKI查询
+│   ├── astrbot_plugin_aemeath_wiki/    # 鸣潮WIKI查询（B站）
+│   └── astrbot_plugin_aemeath_kurobbs/ # 库街区WIKI查询（vendor kurobbs-wiki）
 └── tests/
     ├── test_plugins.py                 # 桩测试（不依赖 AstrBot）
     └── test_tts_live.py                # 真实 CosyVoice 合成
@@ -85,7 +86,8 @@ docker run -d --name astrbot --restart unless-stopped \
 | `aemeath_group_chat` | 群聊插话（水群）；判定与旧版一致：概率 0.2、冷却 60s、参考 15 条上下文、AI 自判 `[skip]`；冷群间隔 30 分钟自动清空上下文；`/水群 on\|off\|prob` |
 | `aemeath_poke` | 戳一戳机器人回俏皮话；10s 冷却防刷屏 |
 | `aemeath_music` | 「演奏/来一首/点一首 xxx」搜网易云分享歌曲链接；含 LLM 工具 `share_netease_music` |
-| `aemeath_wiki` | `/wiki` 或「鸣潮wiki/查角色 xxx」查 B站鸣潮WIKI；角色卡=立绘+基本资料+养成材料合计（突破/技能，wiki 缺数据时如实标注）+同类型五星武器（SMW ask）；武器卡=90级面板+六档突破材料汇总；别名/包含/拼音/错别字容错，「漂泊者」等多条目会反问；未命中走全文搜索兜底；含 LLM 工具 `wuwa_character_info`；角色列表/武器索引缓存 7 天、资料缓存 3 天、图片本地缓存（上限 200 张） |
+| `aemeath_wiki` | `/wiki` 或「鸣潮wiki/查角色 xxx」查 B站鸣潮WIKI；角色卡=立绘+基本资料+养成材料合计（突破/技能，wiki 缺数据时如实标注并指向 `/材料`）+同类型五星武器（SMW ask）；武器卡=90级面板+六档突破材料汇总；别名/包含/拼音/错别字容错，「漂泊者」等多条目会反问；未命中走全文搜索兜底；含 LLM 工具 `wuwa_character_info`；角色列表/武器索引缓存 7 天、资料缓存 3 天、图片本地缓存（上限 200 张） |
+| `aemeath_kurobbs` | 库街区 WIKI 查询，vendor [Alphamancer/kurobbs-wiki](https://github.com/Alphamancer/kurobbs-wiki)（MIT，纯标准库 `wikiquery.py` 子进程调用，HOME 重定向持久化其缓存）；`/材料 角色` 突破材料合计（全角色覆盖，补 B站WIKI 缺口）、`/攻略 角色` 武器排名+声骸套装+主流队伍、`/配队 角色 [池]` 配队引擎（无池子用攻略点名补池）、`/kuro 词` 全站搜索；含 LLM 工具 `wuwa_kurobbs_lookup`；按用途限定搜索分类压缩冷启动，后台每 25h 预热列表缓存，卡片结果缓存 24h；未接入账号（my login）与社区帖（post，需 Playwright） |
 
 ### 第三方（已装）
 
@@ -117,12 +119,12 @@ docker run -d --name astrbot --restart unless-stopped \
 ## 测试
 
 ```bash
-python astrbot/tests/test_plugins.py      # 81/81，桩环境
+python astrbot/tests/test_plugins.py      # 101/101，桩环境
 $env:DASHSCOPE_API_KEY="sk-..."
 python astrbot/tests/test_tts_live.py     # 真实 wav 合成
 ```
 
-桩测试覆盖：白名单增删/拦截、语音前缀与概率、表情替换、总结生成、卡片解析、WIKI 模板解析/材料合计（k/w 记数）/角色名匹配/武器路由/卡片排版/搜索兜底/缓存。
+桩测试覆盖：白名单增删/拦截、语音前缀与概率、表情替换、总结生成、卡片解析、B站WIKI 模板解析/材料合计（k/w 记数）/角色名匹配/武器路由/卡片排版/搜索兜底/缓存、库街区词条选取/材料汇总/武器排名与声骸与队伍提取/配队输出解析/别名/指令与 LLM 工具。
 
 ---
 

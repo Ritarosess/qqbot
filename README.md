@@ -46,6 +46,7 @@
 | B 站点播 | 搜索并发送视频/音频，支持语音与文件 |
 | 联网搜索 | DeepSeek 官方 Search/Fetch，模型可主动检索 |
 | 鸣潮WIKI查询 | `/wiki 角色名` 发立绘+资料+养成材料+武器推荐；`/wiki 武器名` 发武器面板+突破材料；别名/拼音/错别字容错 |
+| 库街区攻略 | `/材料` `/攻略` `/配队` `/kuro` 查库街区WIKI：突破材料全角色覆盖、武器/声骸/主流队伍推荐、配队引擎 |
 | 卡片解析 | B 站分享卡片转文本，避免空消息不回复 |
 | 戳一戳回应 | QQ 戳机器人时回俏皮话（带冷却） |
 | 网易云点歌 | 「演奏/来一首 xxx」搜索并分享歌曲链接 |
@@ -105,6 +106,7 @@ ssh -i deploy\keys\aliyun_ed25519 -N -L 6185:127.0.0.1:6185 ecs-user@<ECS公网I
 | `astrbot_plugin_aemeath_poke` | 戳一戳机器人回俏皮话 |
 | `astrbot_plugin_aemeath_music` | 「演奏/来一首 xxx」搜网易云分享歌曲链接 |
 | `astrbot_plugin_aemeath_wiki` | B站鸣潮WIKI 查询：角色立绘+资料+养成材料合计+同类型五星武器（SMW），武器面板+突破材料，全文搜索兜底，LLM 工具 |
+| `astrbot_plugin_aemeath_kurobbs` | 库街区WIKI（vendor [Alphamancer/kurobbs-wiki](https://github.com/Alphamancer/kurobbs-wiki)，MIT）：/材料 突破材料合计（全角色）、/攻略 武器/声骸/队伍推荐、/配队 配队引擎、/kuro 全站搜索，LLM 工具 |
 | `astrbot_plugin_aemeath_summary` | 每日总结 |
 | `astrbot_plugin_aemeath_card` | QQ 分享卡片解析（JSON/XML） |
 
@@ -145,6 +147,7 @@ ssh -i deploy\keys\aliyun_ed25519 -N -L 6185:127.0.0.1:6185 ecs-user@<ECS公网I
 | `/dls show`、`/dls full`、`/dls regen` | 查看/重生成生活状态（regen 管理员） |
 | `/dsearch <关键词>`、`/dfetch <URL>` | 联网搜索 / 抓取网页 |
 | `/wiki <角色名\|武器名\|关键词>` | 查鸣潮WIKI（也可用「鸣潮wiki xxx」「查角色 xxx」前缀） |
+| `/材料 <角色名>`、`/攻略 <角色名>`、`/配队 <角色名> [池]`、`/kuro <词>` | 查库街区WIKI：突破材料/攻略推荐/配队引擎/全站搜索 |
 | `/summary` | 手动触发每日总结 |
 | `/水群 on|off`、`/水群 prob 0.15` | 开关/调整群聊自动插话（管理员） |
 

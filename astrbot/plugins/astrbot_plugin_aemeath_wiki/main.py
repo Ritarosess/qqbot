@@ -248,7 +248,8 @@ def build_material_section(info: dict) -> list[str]:
     if asc:
         lines.append(f"角色突破：{asc}")
     else:
-        lines.append("角色突破：WIKI 暂未收录该角色突破材料")
+        hint = f"，发「/材料 {info['name']}」查库街区" if info.get("name") else ""
+        lines.append(f"角色突破：WIKI 暂未收录该角色突破材料{hint}")
     skill = format_material_totals(info.get("skill_totals") or {})
     if skill:
         lines.append(f"技能满级：{skill}")
