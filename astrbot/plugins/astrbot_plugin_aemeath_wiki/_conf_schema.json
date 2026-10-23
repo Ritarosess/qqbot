@@ -1,0 +1,28 @@
+{
+  "enabled": {
+    "description": "启用鸣潮 WIKI 查询",
+    "type": "bool",
+    "default": true
+  },
+  "prefixes": {
+    "description": "触发前缀（/wiki 指令始终可用）",
+    "type": "list",
+    "default": ["鸣潮wiki", "查角色", "角色资料"]
+  },
+  "image_mode": {
+    "description": "角色卡片配图：立绘 / 头像 / 无",
+    "type": "string",
+    "default": "立绘",
+    "hint": "立绘较大（1-2MB），服务器带宽紧张可改为头像"
+  },
+  "cooldown": {
+    "description": "同一会话前缀触发冷却（秒）",
+    "type": "int",
+    "default": 5
+  },
+  "cache_dir": {
+    "description": "缓存目录（留空用插件数据目录）",
+    "type": "string",
+    "default": ""
+  }
+}

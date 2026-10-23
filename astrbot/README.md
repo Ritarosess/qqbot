@@ -18,7 +18,8 @@ astrbot/
 │   ├── astrbot_plugin_aemeath_emoji/   # 表情
 │   ├── astrbot_plugin_aemeath_access/  # 群白名单
 │   ├── astrbot_plugin_aemeath_summary/ # 每日总结
-│   └── astrbot_plugin_aemeath_card/    # 卡片消息解析
+│   ├── astrbot_plugin_aemeath_card/    # 卡片消息解析
+│   └── astrbot_plugin_aemeath_wiki/    # 鸣潮WIKI查询
 └── tests/
     ├── test_plugins.py                 # 桩测试（不依赖 AstrBot）
     └── test_tts_live.py                # 真实 CosyVoice 合成
@@ -84,6 +85,7 @@ docker run -d --name astrbot --restart unless-stopped \
 | `aemeath_group_chat` | 群聊插话（水群）；判定与旧版一致：概率 0.2、冷却 60s、参考 15 条上下文、AI 自判 `[skip]`；冷群间隔 30 分钟自动清空上下文；`/水群 on\|off\|prob` |
 | `aemeath_poke` | 戳一戳机器人回俏皮话；10s 冷却防刷屏 |
 | `aemeath_music` | 「演奏/来一首/点一首 xxx」搜网易云分享歌曲链接；含 LLM 工具 `share_netease_music` |
+| `aemeath_wiki` | `/wiki` 或「鸣潮wiki/查角色 xxx」查 B站鸣潮WIKI；角色卡=立绘+基本资料+养成材料合计（突破/技能，wiki 缺数据时如实标注）+同类型五星武器（SMW ask）；武器卡=90级面板+六档突破材料汇总；别名/包含/拼音/错别字容错，「漂泊者」等多条目会反问；未命中走全文搜索兜底；含 LLM 工具 `wuwa_character_info`；角色列表/武器索引缓存 7 天、资料缓存 3 天、图片本地缓存（上限 200 张） |
 
 ### 第三方（已装）
 
@@ -115,12 +117,12 @@ docker run -d --name astrbot --restart unless-stopped \
 ## 测试
 
 ```bash
-python astrbot/tests/test_plugins.py      # 27/27，桩环境
+python astrbot/tests/test_plugins.py      # 81/81，桩环境
 $env:DASHSCOPE_API_KEY="sk-..."
 python astrbot/tests/test_tts_live.py     # 真实 wav 合成
 ```
 
-桩测试覆盖：白名单增删/拦截、语音前缀与概率、表情替换、总结生成、卡片解析。
+桩测试覆盖：白名单增删/拦截、语音前缀与概率、表情替换、总结生成、卡片解析、WIKI 模板解析/材料合计（k/w 记数）/角色名匹配/武器路由/卡片排版/搜索兜底/缓存。
 
 ---
 

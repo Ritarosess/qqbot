@@ -45,6 +45,7 @@
 | 游戏版本推送 | 鸣潮版本/预下载变更推送到群（文本模式） |
 | B 站点播 | 搜索并发送视频/音频，支持语音与文件 |
 | 联网搜索 | DeepSeek 官方 Search/Fetch，模型可主动检索 |
+| 鸣潮WIKI查询 | `/wiki 角色名` 发立绘+资料+养成材料+武器推荐；`/wiki 武器名` 发武器面板+突破材料；别名/拼音/错别字容错 |
 | 卡片解析 | B 站分享卡片转文本，避免空消息不回复 |
 | 戳一戳回应 | QQ 戳机器人时回俏皮话（带冷却） |
 | 网易云点歌 | 「演奏/来一首 xxx」搜索并分享歌曲链接 |
@@ -103,6 +104,7 @@ ssh -i deploy\keys\aliyun_ed25519 -N -L 6185:127.0.0.1:6185 ecs-user@<ECS公网I
 | `astrbot_plugin_aemeath_group_chat` | 群聊概率插话（水群），`/水群 on|off|prob` |
 | `astrbot_plugin_aemeath_poke` | 戳一戳机器人回俏皮话 |
 | `astrbot_plugin_aemeath_music` | 「演奏/来一首 xxx」搜网易云分享歌曲链接 |
+| `astrbot_plugin_aemeath_wiki` | B站鸣潮WIKI 查询：角色立绘+资料+养成材料合计+同类型五星武器（SMW），武器面板+突破材料，全文搜索兜底，LLM 工具 |
 | `astrbot_plugin_aemeath_summary` | 每日总结 |
 | `astrbot_plugin_aemeath_card` | QQ 分享卡片解析（JSON/XML） |
 
@@ -142,6 +144,7 @@ ssh -i deploy\keys\aliyun_ed25519 -N -L 6185:127.0.0.1:6185 ecs-user@<ECS公网I
 | `/voice <文字>` | 立即发送一条语音 |
 | `/dls show`、`/dls full`、`/dls regen` | 查看/重生成生活状态（regen 管理员） |
 | `/dsearch <关键词>`、`/dfetch <URL>` | 联网搜索 / 抓取网页 |
+| `/wiki <角色名\|武器名\|关键词>` | 查鸣潮WIKI（也可用「鸣潮wiki xxx」「查角色 xxx」前缀） |
 | `/summary` | 手动触发每日总结 |
 | `/水群 on|off`、`/水群 prob 0.15` | 开关/调整群聊自动插话（管理员） |
 
@@ -171,7 +174,7 @@ docker logs --tail 50 napcat
 
 ```bash
 # 插件逻辑（桩环境，不依赖 AstrBot/Docker）
-python astrbot/tests/test_plugins.py        # 27/27
+python astrbot/tests/test_plugins.py        # 63/63
 
 # 真实 CosyVoice 合成
 $env:DASHSCOPE_API_KEY="sk-..."

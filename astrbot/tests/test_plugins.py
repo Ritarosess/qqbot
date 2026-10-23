@@ -6,6 +6,7 @@
   2. voice: 前缀匹配、显式触发（stop_event + 发送语音）、概率语音替换
   3. emoji: [emoji] 标记替换为图片、残留标记清理
   4. summary: 群消息落盘、/summary 触发生成并发送
+  5. wiki: 模板解析、角色名匹配、卡片排版、搜索兜底、LLM 工具、缓存
 
 真实语音合成（网络）见 astrbot/tests/test_tts_live.py。
 """
@@ -252,6 +253,13 @@ sys.modules.update({
     "astrbot.core.utils": utils_mod,
     "astrbot.core.utils.astrbot_path": path_mod,
 })
+
+# 没装 aiohttp 的环境用空模块顶替（测试里网络函数全部 monkeypatch，不会真调用）
+if importlib.util.find_spec("aiohttp") is None:
+    _aiohttp = types.ModuleType("aiohttp")
+    _aiohttp.ClientTimeout = lambda **kw: None
+    _aiohttp.ClientSession = object
+    sys.modules["aiohttp"] = _aiohttp
 
 PLUGINS = ROOT.parent / "plugins"
 
@@ -555,6 +563,224 @@ async def main():
     ev = AstrMessageEvent("今天演奏会取消了吗")
     out = await drain(mp.on_request(ev))
     check("music: 非触发不分享", not out)
+
+    # ---------- wiki ----------
+    wiki = load_plugin("astrbot_plugin_aemeath_wiki")
+
+    fixture = (
+        "{{共鸣者/基本资料\n"
+        "|实装日期=20260205\n"
+        "|名称=爱弥斯\n"
+        "|初奏=<!--抽卡语音-->你，看见我了？\n"
+        "|属性=热熔\n"
+        "|武器=迅刀\n"
+        "|品质=5\n"
+        "|战斗风格=2,7,33\n"
+        "|出生=拉海洛\n"
+        "|势力=星炬学院\n"
+        "|简介=星炬学院的{{引用|隧者}}适格者。<br/>电子幽灵。\n"
+        "}}\n"
+        "{{共鸣者/基础属性\n|生命=882\n}}\n"
+    )
+    fields = wiki.parse_template_fields(fixture, "共鸣者/基本资料")
+    check("wiki: 模板字段解析", fields.get("名称") == "爱弥斯" and fields.get("属性") == "热熔")
+    check("wiki: HTML 注释清理", fields.get("初奏") == "你，看见我了？")
+    check("wiki: 引用模板与换行清理", fields.get("简介") == "星炬学院的隧者适格者。\n电子幽灵。")
+    check("wiki: 战斗风格 ID 映射", wiki.format_styles("2,7,33") == "主力输出、共鸣解放伤害、震谐响应")
+    check("wiki: 战斗风格名称透传", wiki.format_styles("主力输出,重击伤害") == "主力输出、重击伤害")
+    check("wiki: 实装日期格式化", wiki.format_date("20260205") == "2026-02-05")
+
+    # 材料解析：数量记法 / 汇总 / 万格式化
+    check("wiki: 数量记法", wiki.parse_qty("1k5") == 1500 and wiki.parse_qty("1w6") == 16000
+          and wiki.parse_qty("10w") == 100000 and wiki.parse_qty("2,252") == 2252
+          and wiki.parse_qty("60") == 60)
+    check("wiki: 材料串解析", wiki.parse_material_entries("龙吐珠*60,哀歌声核*46;贝币*1k5")
+          == [("龙吐珠", 60), ("哀歌声核", 46), ("贝币", 1500)])
+    totals = wiki.sum_material_entries("贝壳*2,贝币*1k5;", "贝壳*3,贝币*2k")
+    check("wiki: 材料汇总", totals == {"贝壳": 5, "贝币": 3500})
+    check("wiki: 万格式化", wiki.format_wan(330000) == "33万" and wiki.format_wan(1730000) == "173万"
+          and wiki.format_wan(16000) == "1.6万" and wiki.format_wan(60) == "60")
+    fmt = wiki.format_material_totals({"龙吐珠": 60, "贝币": 330000})
+    check("wiki: 合计排版（贝币最后）", fmt == "龙吐珠×60、贝币×33万")
+
+    names = ["爱弥斯", "今汐", "卡卡罗", "心", "秧秧", "秧秧·玄翎",
+             "漂泊者·导电", "漂泊者·气动", "漂泊者·湮灭", "漂泊者·衍射"]
+    check("wiki: 别名匹配", wiki.match_name("小爱", names)[0] == "爱弥斯")
+    check("wiki: 包含匹配", wiki.match_name("今汐的资料", names)[0] == "今汐")
+    check("wiki: 单字名精确命中", wiki.match_name("心", names)[0] == "心")
+    check("wiki: 单字名不误配", wiki.match_name("心跳", names)[0] is None)
+    multi = wiki.match_name("漂泊者", names)
+    check("wiki: 多条目返回候选", multi[0] is None and len(multi[1]) == 4)
+    check("wiki: 形近字容错", wiki.match_name("卡卡萝", names)[0] == "卡卡罗")
+
+    card = wiki.build_card({
+        "name": "爱弥斯", "quality": "5", "element": "热熔", "weapon": "迅刀",
+        "styles": "主力输出", "intro": "电子幽灵", "url": "https://example.com",
+    })
+    check("wiki: 卡片排版", "★★★★★" in card and "热熔｜迅刀" in card and "https://example.com" in card)
+
+    sec = "\n".join(wiki.build_material_section({
+        "ascension_totals": {"龙吐珠": 60, "哀歌声核": 46},
+        "skill_totals": {"海蚀嵌合体239": 61, "贝币": 1730000},
+    }))
+    check("wiki: 材料段完整", "龙吐珠×60" in sec and "贝币×173万" in sec and "技能满级" in sec)
+    sec = "\n".join(wiki.build_material_section({"ascension_totals": {}, "skill_totals": {}}))
+    check("wiki: 材料缺失如实标注", sec.count("暂未收录") == 2 and "未计入" in sec)
+
+    rec = wiki.build_weapon_rec_section(
+        {"weapon": "迅刀"},
+        [{"name": "千古洑流", "substat": "暴击", "version": "1.0"},
+         {"name": "天之苍苍", "substat": "暴击", "version": "3.5"},
+         {"name": "裁春", "substat": "暴击", "version": "1.4"}],
+    )
+    check("wiki: 武器推荐按版本降序",
+          bool(rec) and rec[0].index("天之苍苍") < rec[0].index("裁春") < rec[0].index("千古洑流"))
+
+    weapon_fixture = (
+        "{{武器\n"
+        "|实装版本=1.4\n"
+        "|名称=裁春\n"
+        "|类型=迅刀\n"
+        "|品质=5\n"
+        "|获取途径=限时武器活动唤取\n"
+        "|武器技能=终始之外\n"
+        "|技能描述=攻击提升{{颜色|技能|12%/15%/18%/21%/24%}}。<br>造成普攻伤害时提升伤害。\n"
+        "|初始攻击=47\n"
+        "|副词条=暴击\n"
+        "|词条初始数值=0.054\n"
+        "|%=1\n"
+        "|突破材料总览=\n"
+        "|20级突破材料=低频啸叫声核*6,贝币*10000\n"
+        "|40级突破材料=中频啸叫声核*6,惰性金属液滴*6,贝币*20000\n"
+        "|50级突破材料=高频啸叫声核*4,活性金属液滴*8,贝币*40000\n"
+        "|60级突破材料=高频啸叫声核*6,极化金属液滴*6,贝币*60000\n"
+        "|70级突破材料=全频啸叫声核*4,异构金属液滴*8,贝币*80000\n"
+        "|80级突破材料=全频啸叫声核*8,异构金属液滴*12,贝币*120000\n"
+        "}}\n"
+    )
+    widx = {"裁春": {"type": "迅刀", "quality": "5"}, "远行者迅刀·旅迹": {"type": "迅刀", "quality": "3"}}
+    check("wiki: 武器精确匹配", wiki.match_weapon("裁春", widx) == "裁春")
+    check("wiki: 武器包含匹配", wiki.match_weapon("裁春的资料", widx) == "裁春")
+    check("wiki: 武器类型词不误配", wiki.match_weapon("迅刀", widx) is None)
+    _orig_pinyin = wiki._pinyin
+    wiki._pinyin = lambda s: {"裁椿": "caichun", "裁春": "caichun"}.get(s, "")
+    check("wiki: 武器拼音容错（裁椿→裁春）", wiki.match_weapon("裁椿", widx) == "裁春")
+    wiki._pinyin = _orig_pinyin
+
+    wp = wiki.AemeathWikiPlugin(Context(), AstrBotConfig({
+        "enabled": True, "prefixes": ["鸣潮wiki", "查角色"], "image_mode": "立绘",
+        "cooldown": 0, "cache_dir": str(TMP / "wiki_cache"),
+    }))
+
+    async def fake_characters(force=False):
+        return names
+
+    async def fake_wikitext(title):
+        return fixture if title == "共鸣者/爱弥斯" else ""
+
+    async def no_image(info):
+        return None
+
+    wp.client.characters = fake_characters
+    wp.client.wikitext = fake_wikitext
+    wp.character_image = no_image
+
+    ev = AstrMessageEvent("/wiki 爱弥斯")
+    out = await drain(wp.wiki_cmd(ev))
+    flat = [seg for x in out for seg in (x if isinstance(x, list) else [x])]
+    txt = "".join(seg.text for seg in flat if isinstance(seg, Plain))
+    check("wiki: /wiki 发送角色卡片", "爱弥斯" in txt and "热熔" in txt and "wiki.biligame.com" in txt)
+
+    ev = AstrMessageEvent("鸣潮wiki 小爱")
+    out = await drain(wp.wiki_prefix(ev))
+    flat = [seg for x in out for seg in (x if isinstance(x, list) else [x])]
+    txt = "".join(seg.text for seg in flat if isinstance(seg, Plain))
+    check("wiki: 前缀触发命中别名", ev.stopped is True and "爱弥斯" in txt)
+    check("wiki: 卡片不转语音", getattr(ev, "_aemeath_voice_sent", False) is True)
+
+    fake_png = TMP / "fake_lihui.png"
+    fake_png.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    async def with_image(info):
+        return fake_png
+
+    wp.character_image = with_image
+    ev = AstrMessageEvent("/wiki 爱弥斯")
+    out = await drain(wp.wiki_cmd(ev))
+    flat = [seg for x in out for seg in (x if isinstance(x, list) else [x])]
+    check("wiki: 立绘图片段发送", any(isinstance(seg, Image) for seg in flat))
+    wp.character_image = no_image
+
+    # 角色卡附加段：养成材料（fixture 无数据→标注）+ 同类型五星武器推荐
+    async def fake_weapons_by_type(wtype, quality=5):
+        if wtype != "迅刀":
+            return []
+        return [{"name": "千古洑流", "substat": "暴击", "version": "1.0"},
+                {"name": "天之苍苍", "substat": "暴击", "version": "3.5"}]
+
+    wp.client.weapons_by_type = fake_weapons_by_type
+    text, _ = await wp.lookup("爱弥斯")
+    check("wiki: 角色卡带材料段", "养成材料" in text and "WIKI 暂未收录该角色突破材料" in text)
+    check("wiki: 角色卡带武器推荐", "五星迅刀" in text and "天之苍苍(暴击)" in text)
+
+    # 技能材料集成：wiki 有数据的角色（今汐风格 fixture）
+    jinxi_fixture = (
+        "{{共鸣者/基本资料\n|名称=今汐\n|属性=衍射\n|武器=长刃\n|品质=5\n}}\n"
+        "{{共鸣者/基础属性\n|生命=866\n|突破消耗材料总数=龙吐珠*60,哀歌声核*46\n}}\n"
+        "{{共鸣者/技能\n|角色名称=今汐\n"
+        "|常态攻击升级消耗=海蚀嵌合体210*2,低频啸叫声核*2,贝币*1k5;\n"
+        "海蚀嵌合体210*3,低频啸叫声核*3,贝币*2k\n"
+        "|共鸣技能升级消耗=海蚀嵌合体210*2,贝币*1k5\n"
+        "}}\n"
+    )
+
+    async def fake_wikitext2(title):
+        if title == "共鸣者/爱弥斯":
+            return fixture
+        if title == "共鸣者/今汐":
+            return jinxi_fixture
+        if title == "武器/裁春":
+            return weapon_fixture
+        return ""
+
+    wp.client.wikitext = fake_wikitext2
+    text, _ = await wp.lookup("今汐")
+    check("wiki: 技能材料合计", "海蚀嵌合体210×7" in text and "低频啸叫声核×5" in text and "贝币×5,000" in text)
+    check("wiki: 突破材料合计", "龙吐珠×60" in text and "哀歌声核×46" in text)
+
+    # 武器路由：/wiki 裁春 → 武器卡片（90级面板 + 六档材料汇总）
+    async def fake_weapon_index():
+        return widx
+
+    wp.client.weapon_index = fake_weapon_index
+    text, _ = await wp.lookup("裁春")
+    check("wiki: 武器卡片", "裁春（武器）" in text and "90级攻击 587" in text
+          and "暴击 5.4%→24.3%" in text and "限时武器活动唤取" in text)
+    check("wiki: 武器材料六档汇总", "高频啸叫声核×10" in text and "异构金属液滴×20" in text
+          and "贝币×33万" in text)
+    check("wiki: 武器技能描述清理", "12%/15%/18%/21%/24%" in text and "{{颜色" not in text)
+
+    text, img = await wp.lookup("漂泊者")
+    check("wiki: 多条目询问用户", "漂泊者·衍射" in text and img is None)
+
+    async def fake_search(kw, limit=3):
+        return [{"title": "武器/四尺玉", "snippet": "测试摘要"}] if "四尺" in kw else []
+
+    wp.client.search = fake_search
+    text, _ = await wp.lookup("四尺玉")
+    check("wiki: 搜索兜底摘要与链接", "武器/四尺玉" in text and "测试摘要" in text)
+    text, _ = await wp.lookup("不存在的东西")
+    check("wiki: 未找到提示", "没找到" in text)
+
+    tool_text = await wp.wiki_tool(AstrMessageEvent(""), "爱弥斯")
+    check("wiki: LLM 工具返回卡片", "爱弥斯" in tool_text and "热熔" in tool_text)
+
+    async def empty_wikitext(title):
+        return ""
+
+    wp.client.wikitext = empty_wikitext
+    text, _ = await wp.lookup("爱弥斯")
+    check("wiki: 资料缓存命中不再请求网络", "爱弥斯" in text and "热熔" in text)
 
     # ---------- group_chat 冷群间隔 ----------
     class _CapProvider:
