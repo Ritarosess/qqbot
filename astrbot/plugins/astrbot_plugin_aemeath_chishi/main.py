@@ -577,6 +577,10 @@ class AemeathChishiPlugin(Star):
         # 去重种子（保证「原转发」和「引用该转发的回复」落到同一个指纹）：
         # 1) 有转发段 → 用转发段 id（原发/引用拿到的都是同一个 id）
         # 2) 只是引用普通消息 → 用被引用消息 id
+        # 只要这条是对某条消息的引用，就记住被引用的 id：原生转发时用它，
+        # 否则会把「@机器人 这条也搬」这句指令本身转发出去
+        if rid:
+            result["quote_mid"] = str(rid)
         if forward_ids:
             result["fp_seed"] = f"fwd:{forward_ids[0]}"
         elif rid:
@@ -786,7 +790,7 @@ class AemeathChishiPlugin(Star):
         cmd_mid = str(getattr(getattr(event, "message_obj", None), "message_id", "") or "")
         # 这条消息本身就是指令（图片配「这条也搬」）时不能原生转发，否则会把指令一起搬走；
         # 但如果它本身就是一条转发（nodes 非空），原生转发正是要的效果（文件/视频才不会丢）
-        same_as_cmd = bool(mid) and mid == cmd_mid and not nodes
+        same_as_cmd = (bool(mid) and mid == cmd_mid and not nodes) or bool(material.get("quote_mid"))
         bot = getattr(event, "bot", None)
         can_native = bool(kind == "group" and mid.isdigit() and target.isdigit()
                           and bot is not None and not same_as_cmd)
