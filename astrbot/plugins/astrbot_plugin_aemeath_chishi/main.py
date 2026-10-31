@@ -784,8 +784,9 @@ class AemeathChishiPlugin(Star):
         mid = str(material.get("mid") or "")
         quote_mid = str(material.get("quote_mid") or "")
         cmd_mid = str(getattr(getattr(event, "message_obj", None), "message_id", "") or "")
-        # 这条消息本身就是指令（图片配「这条也搬」）时不能原生转发，否则会把指令一起搬走
-        same_as_cmd = bool(mid) and mid == cmd_mid
+        # 这条消息本身就是指令（图片配「这条也搬」）时不能原生转发，否则会把指令一起搬走；
+        # 但如果它本身就是一条转发（nodes 非空），原生转发正是要的效果（文件/视频才不会丢）
+        same_as_cmd = bool(mid) and mid == cmd_mid and not nodes
         bot = getattr(event, "bot", None)
         can_native = bool(kind == "group" and mid.isdigit() and target.isdigit()
                           and bot is not None and not same_as_cmd)
