@@ -1,0 +1,37 @@
+{
+  "enabled": {
+    "description": "启用表情替换",
+    "type": "bool",
+    "default": true
+  },
+  "remote_enabled": {
+    "description": "启用呜哇小站远程表情源（关闭则只用本地缓存）",
+    "type": "bool",
+    "default": true
+  },
+  "api_base": {
+    "description": "呜哇小站 API 地址（留空用默认）",
+    "type": "string",
+    "default": ""
+  },
+  "token": {
+    "description": "呜哇小站 Token（可选，提高额度）",
+    "type": "string",
+    "default": ""
+  },
+  "character": {
+    "description": "默认角色：任意 = 全站随机；也可填角色名",
+    "type": "string",
+    "default": "任意"
+  },
+  "cache_dir": {
+    "description": "表情缓存目录（留空用插件数据目录）",
+    "type": "string",
+    "default": ""
+  },
+  "max_per_message": {
+    "description": "单条消息最多表情数量",
+    "type": "int",
+    "default": 3
+  }
+}

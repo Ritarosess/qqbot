@@ -1,0 +1,8 @@
+[Unit]
+Description=QQ bot watchdog (NapCat online check + auto relogin)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/qqbot/watchdog.py

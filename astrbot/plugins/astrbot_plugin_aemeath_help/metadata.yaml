@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_help
+display_name: 爱弥斯·指令总览
+version: 0.1.0
+desc: 发送 /帮助 返回全部功能与命令列表（别名 菜单）
+author: Aemeath
+repo: <REPO_URL>

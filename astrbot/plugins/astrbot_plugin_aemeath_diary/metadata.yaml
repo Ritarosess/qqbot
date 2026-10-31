@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_diary
+display_name: 爱弥斯·日记
+version: 0.2.0
+desc: 每天 23:30 合并所有群的聊天记录生成一篇爱弥斯第一人称日记，按天存档 + 合集备份，仅发管理员私聊；/日记 回看、/写日记 手动生成
+author: Aemeath
+repo: <REPO_URL>

@@ -1,0 +1,122 @@
+{
+  "enabled": {
+    "description": "启用吃史仙人",
+    "type": "bool",
+    "default": true
+  },
+  "watchGroups": {
+    "description": "在哪些群主动吃史（留空 = 所有群）",
+    "type": "string",
+    "default": ""
+  },
+  "commentGroups": {
+    "description": "在哪些群开口评价（留空 = 所有群）",
+    "type": "string",
+    "default": ""
+  },
+  "feedGroups": {
+    "description": "好东西搬到哪个群（填群号，多个逗号隔开；留空 = 搬不动）",
+    "type": "string",
+    "default": ""
+  },
+  "feedPrivateTarget": {
+    "description": "说「发我」时搬给谁（填 QQ 号）",
+    "type": "string",
+    "default": ""
+  },
+  "feedBlockList": {
+    "description": "自动搬史黑名单：填 QQ 号或群号（逗号/空格分隔），名单内的用户或群不会被自动搬史（手动搬不受影响）",
+    "type": "string",
+    "default": ""
+  },
+  "feedForceTags": {
+    "description": "强制搬运的主题标签：模型判定主题命中这些值就直接搬，不看等级/概率/黑名单（默认 美少女,抽象,擦边）",
+    "type": "string",
+    "default": "美少女,抽象,擦边"
+  },
+  "feedForceKeywords": {
+    "description": "强制搬运的关键词：内容文本里出现这些词就直接搬，不看等级/概率/黑名单（逗号分隔，默认空）",
+    "type": "string",
+    "default": ""
+  },
+  "feedSkipTags": {
+    "description": "禁止搬运的主题标签（优先级最高，强制搬运也会被拦）：默认 R18，命中即不搬",
+    "type": "string",
+    "default": "R18"
+  },
+  "biliAutoFeed": {
+    "description": "B站卡片是否允许自动搬史（默认关闭：B站卡片只在手动「这条也搬」时才发，避免刷屏）",
+    "type": "bool",
+    "default": false
+  },
+  "abstractOnlyGroups": {
+    "description": "只搬「抽象」的群：这些群作为来源时，只有抽象标签的内容才搬（群号，逗号分隔，默认空）",
+    "type": "string",
+    "default": ""
+  },
+  "feedSkipKeywords": {
+    "description": "禁止搬运的关键词（优先级最高）：内容文本里出现这些词就不搬（逗号分隔，默认空）",
+    "type": "string",
+    "default": ""
+  },
+  "commentEnabled": {
+    "description": "吃完要不要说话",
+    "type": "bool",
+    "default": true
+  },
+  "eatImages": {
+    "description": "是否吃纯图片/聊天截图（默认关，避免表情包刷屏；开启后仅处理不带文字的纯图片）",
+    "type": "bool",
+    "default": false
+  },
+  "feedProbability": {
+    "description": "自己搬的积极程度（0~1，0 = 从不自己搬）",
+    "type": "float",
+    "default": 0.3
+  },
+  "ownerQQ": {
+    "description": "主人 QQ（填了就只有这个号能在群里叫搬）",
+    "type": "string",
+    "default": ""
+  },
+  "summaryChars": {
+    "description": "评语字数上限",
+    "type": "int",
+    "default": 40
+  },
+  "feedMinLevel": {
+    "description": "几级以上才自动搬（1~5）",
+    "type": "int",
+    "default": 3
+  },
+  "feedMaxPerHour": {
+    "description": "每小时最多自动搬几份",
+    "type": "int",
+    "default": 20
+  },
+  "maxChars": {
+    "description": "每轮读取正文字数上限",
+    "type": "int",
+    "default": 60000
+  },
+  "maxImages": {
+    "description": "每轮最多送几张图给模型看",
+    "type": "int",
+    "default": 6
+  },
+  "dedupeMinutes": {
+    "description": "同一份内容多少分钟内不重复搬",
+    "type": "int",
+    "default": 5
+  },
+  "dupWindowMinutes": {
+    "description": "跨群内容去重窗口（分钟）：同一份内容在多个群同时出现时，窗口内只搬一次；0=关闭",
+    "type": "int",
+    "default": 60
+  },
+  "persona": {
+    "description": "评语用的人设（留空 = 自动读取人设插件）",
+    "type": "text",
+    "default": ""
+  }
+}

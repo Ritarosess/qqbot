@@ -1,0 +1,83 @@
+# 敏感信息
+config.py
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
+
+# 日志
+*.log
+logs/
+
+# 表情包（可选，如果表情太多可以不提交）
+emojis/*.jpg
+emojis/*.png
+emojis/*.gif
+emojis/*.webp
+# 归档的旧表情不提交
+emojis/legacy/
+# 远程表情缓存
+emojis/wuwa_cache/
+
+# 压缩包
+*.zip
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 部署产物与密钥（重要：私钥绝不能进 Git）
+deploy/keys/
+deploy/wip-backup/
+deploy/*.tar.gz
+deploy/*.zip
+*.pem
+id_ed25519
+id_rsa
+
+# 运行时数据
+emojis.json
+whitelist.json
+*.sqlite3
+data/
+
+# AstrBot 重构实验：运行数据与 NapCat 数据不入库
+astrbot/data/
+astrbot/napcat-data/
+astrbot/tests/_tmp/
+astrbot/tests/_tts_live.wav
+
+# 语音素材与产物（复刻样本，体积大且不进 Git / 部署包）
+assets/声音素材/
+*.wav
+*.mp3
+*.m4a
+# 临时调试产物（截图、无头浏览器配置等）
+_tmp_*/
+_qr.png
+assets/qr_login.png
+# 外部参考源码（chishi-xianren 原版 Electron 插件）
+reference/
+
+# SSH 临时 known_hosts
+.ssh_known_hosts_tmp
+
+# 本地私有配置（真实服务器地址等）
+deploy/local.bat
+*.local.*
+
+# 人设素材 docx（含文档作者元数据，不入库）
+assets/人格提示词/*.docx

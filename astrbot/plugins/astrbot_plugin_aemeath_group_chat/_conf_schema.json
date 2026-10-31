@@ -1,0 +1,52 @@
+{
+  "enabled": {
+    "description": "启用群聊自动插话",
+    "type": "bool",
+    "default": true
+  },
+  "probability": {
+    "description": "每条群消息进入插话判断的概率（0~1），与旧版 GROUP_CHAT_PROBABILITY 一致",
+    "type": "float",
+    "default": 0.2
+  },
+  "cooldown": {
+    "description": "同一群最短插话间隔（秒），与旧版 GROUP_CHAT_COOLDOWN 一致",
+    "type": "int",
+    "default": 60
+  },
+  "context_size": {
+    "description": "插话判断时参考的最近群消息条数",
+    "type": "int",
+    "default": 15
+  },
+  "gap_minutes": {
+    "description": "群消息间隔超过该分钟数视为新对话，清空旧上下文（防止冷群后引用/回复错位）",
+    "type": "float",
+    "default": 30
+  },
+  "min_len": {
+    "description": "消息短于该字数不参与判断",
+    "type": "int",
+    "default": 2
+  },
+  "max_chars": {
+    "description": "插话回复的最大字数，0 = 不截断（与旧版一致）",
+    "type": "int",
+    "default": 0
+  },
+  "verify_reply": {
+    "description": "发送前用 AI 校验回复与所引用消息是否对得上（对不上就不发）",
+    "type": "bool",
+    "default": true
+  },
+  "verify_timeout": {
+    "description": "引用校验超时（秒），超时按不通过处理",
+    "type": "int",
+    "default": 20
+  },
+  "persona": {
+    "description": "插话用的系统提示（留空 = 读取人设插件的完整 SYSTEM_PROMPT）",
+    "type": "text",
+    "default": ""
+  }
+}

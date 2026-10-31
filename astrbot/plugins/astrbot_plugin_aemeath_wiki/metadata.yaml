@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_wiki
+display_name: 爱弥斯·鸣潮WIKI查询
+version: 0.2.0
+desc: /wiki 或「鸣潮wiki xxx」查 B站鸣潮WIKI：角色发立绘+资料+养成材料+武器推荐，武器发面板+突破材料；带 LLM 工具
+author: Aemeath
+repo: <REPO_URL>

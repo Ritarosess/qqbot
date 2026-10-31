@@ -1,0 +1,13 @@
+{
+  "whitelistGroups": {
+    "description": "群白名单（逗号分隔的群号）。留空 = 不限制，对所有群生效。可以直接在设置面板里添加/删除，保存后无需重启",
+    "type": "string",
+    "default": ""
+  },
+  "enforce": {
+    "description": "是否在群消息入口拦截非白名单群",
+    "type": "bool",
+    "default": true,
+    "hint": "如果已在 AstrBot 内置群白名单里配置过，可关闭此项避免重复拦截"
+  }
+}

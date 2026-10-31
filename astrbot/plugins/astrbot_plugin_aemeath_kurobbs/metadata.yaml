@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_kurobbs
+display_name: 爱弥斯·库街区WIKI
+version: 0.1.0
+desc: /材料 /攻略 /配队 /kuro 查库街区鸣潮WIKI：突破材料合计、武器/声骸/主流队伍推荐、配队引擎、全站搜索；带 LLM 工具
+author: Aemeath
+repo: <REPO_URL>

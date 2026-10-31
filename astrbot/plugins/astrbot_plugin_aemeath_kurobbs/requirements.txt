@@ -1,0 +1,2 @@
+# vendor 的 wikiquery.py 为纯标准库实现，无第三方依赖
+# （上游的 post 子命令需要 playwright，本插件未接入，故不声明）

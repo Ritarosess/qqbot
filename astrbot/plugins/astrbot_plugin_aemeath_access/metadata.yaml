@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_access
+display_name: 爱弥斯·群白名单
+version: 0.1.0
+desc: 管理员私聊 /allow、/deny 动态管理群白名单，不在名单的群完全静默
+author: Aemeath
+repo: <REPO_URL>

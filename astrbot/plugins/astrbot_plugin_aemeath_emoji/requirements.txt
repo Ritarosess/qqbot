@@ -1,0 +1,2 @@
+aiohttp
+pypinyin>=0.51

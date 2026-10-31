@@ -1,0 +1,11 @@
+[Unit]
+Description=Run QQ bot watchdog every 2 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=10s
+Unit=qqbot-watchdog.service
+
+[Install]
+WantedBy=timers.target

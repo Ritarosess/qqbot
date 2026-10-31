@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_summary
+display_name: 爱弥斯·每日总结
+version: 0.1.0
+desc: 记录群消息，每天定时生成纯文字群聊总结并主动发送
+author: Aemeath
+repo: <REPO_URL>

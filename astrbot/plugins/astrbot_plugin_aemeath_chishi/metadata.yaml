@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_chishi
+display_name: 爱弥斯·吃史仙人
+version: 0.1.0
+desc: 群里有人发合并转发/分享卡片/聊天截图，按人设定级（Lv1-5）评一句；够离谱可自动或手动搬到指定群/私聊（AstrBot 移植版，源自 chishi-xianren）
+author: Aemeath
+repo: <REPO_URL>

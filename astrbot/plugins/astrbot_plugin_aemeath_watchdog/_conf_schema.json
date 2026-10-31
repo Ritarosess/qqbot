@@ -1,0 +1,22 @@
+{
+  "enabled": {
+    "description": "启用掉线通知轮询",
+    "type": "bool",
+    "default": true
+  },
+  "interval": {
+    "description": "轮询间隔（秒）",
+    "type": "int",
+    "default": 60
+  },
+  "admin_qq": {
+    "description": "通知发给谁（QQ 号，留空自动读 admins_id）",
+    "type": "string",
+    "default": ""
+  },
+  "platform": {
+    "description": "平台前缀（aiocqhttp）",
+    "type": "string",
+    "default": "aiocqhttp"
+  }
+}

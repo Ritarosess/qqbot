@@ -1,0 +1,17 @@
+[Unit]
+Description=Aemeath settings dashboard (read/write AstrBot plugin configs)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/qqbot-dashboard
+ExecStart=/usr/bin/python3 /opt/qqbot-dashboard/server.py
+Restart=always
+RestartSec=3
+Environment=DASH_PORT=8610
+Environment=DASH_CONFIG_DIR=/opt/astrbot/data/config
+Environment=DASH_PLUGIN_DIR=/opt/astrbot/plugins
+
+[Install]
+WantedBy=multi-user.target

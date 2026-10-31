@@ -1,0 +1,57 @@
+{
+  "enabled": {
+    "description": "启用日记功能",
+    "type": "bool",
+    "default": true
+  },
+  "record_enabled": {
+    "description": "记录群消息用于写日记",
+    "type": "bool",
+    "default": true
+  },
+  "hour": {
+    "description": "每天写日记的时（0-23）",
+    "type": "int",
+    "default": 23
+  },
+  "minute": {
+    "description": "每天写日记的分（0-59）",
+    "type": "int",
+    "default": 30
+  },
+  "min_messages": {
+    "description": "当天全部群消息总数少于该条数就不写日记",
+    "type": "int",
+    "default": 5
+  },
+  "max_per_group": {
+    "description": "每个群最多取最近多少条消息参与合并",
+    "type": "int",
+    "default": 40
+  },
+  "max_messages": {
+    "description": "合并后的总消息上限（超出取最近部分）",
+    "type": "int",
+    "default": 120
+  },
+  "send_to_admin": {
+    "description": "日记写完后只发给管理员私聊（不发群）",
+    "type": "bool",
+    "default": true
+  },
+  "admin_qq": {
+    "description": "管理员 QQ（留空 = 自动读 AstrBot 的 admins_id）",
+    "type": "string",
+    "default": ""
+  },
+  "keep_days": {
+    "description": "按天日记保留天数，0 = 永久保留",
+    "type": "int",
+    "default": 0
+  },
+  "persona": {
+    "description": "写日记用的系统提示（留空 = 内置日记人设）",
+    "type": "text",
+    "default": ""
+  }
+}

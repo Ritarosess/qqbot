@@ -1,0 +1,47 @@
+{
+  "enabled": {
+    "description": "启用长期记忆（自动抽取 + 注入对话）",
+    "type": "bool",
+    "default": true
+  },
+  "autoExtract": {
+    "description": "自动从群聊/私聊里抽取值得长期记住的内容",
+    "type": "bool",
+    "default": true
+  },
+  "extractEvery": {
+    "description": "累积多少条消息后触发一次记忆抽取",
+    "type": "int",
+    "default": 20
+  },
+  "extractCooldown": {
+    "description": "同一会话两次抽取的最短间隔（秒），避免刷模型",
+    "type": "int",
+    "default": 900
+  },
+  "injectMaxChars": {
+    "description": "每次对话注入的记忆字数上限（越大越占上下文）",
+    "type": "int",
+    "default": 1200
+  },
+  "recentDays": {
+    "description": "最近多少天内的事至少保持「清楚」",
+    "type": "float",
+    "default": 7
+  },
+  "forgetAfterDays": {
+    "description": "超过多少天且不重要的记忆彻底遗忘",
+    "type": "float",
+    "default": 60
+  },
+  "maxRecords": {
+    "description": "最多保留多少条记忆（超出时按重要度淘汰，永久记忆不淘汰）",
+    "type": "int",
+    "default": 500
+  },
+  "ownerQQ": {
+    "description": "主人的 QQ 号：第一次说话会记成永久记忆，被问「我是谁」时能认出来",
+    "type": "string",
+    "default": ""
+  }
+}

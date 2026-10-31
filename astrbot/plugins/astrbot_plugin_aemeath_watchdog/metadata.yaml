@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_watchdog
+display_name: 爱弥斯·掉线看门狗
+version: 0.1.0
+desc: NapCat 掉线自动重连（快捷登录/重启）+ 恢复后私聊通知管理员
+author: Aemeath
+repo: <REPO_URL>

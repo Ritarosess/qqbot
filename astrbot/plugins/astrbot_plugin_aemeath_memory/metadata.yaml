@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_memory
+display_name: 爱弥斯·记忆
+desc: 长期记忆：自动从聊天里记住人物/事件/梗，按清晰度慢慢遗忘，对话时注入相关记忆
+version: 0.1.0
+author: Aemeath
+repo: <REPO_URL>

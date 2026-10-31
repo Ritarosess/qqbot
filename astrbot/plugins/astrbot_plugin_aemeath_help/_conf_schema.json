@@ -1,0 +1,7 @@
+{
+  "enabled": {
+    "description": "启用 /帮助 指令",
+    "type": "bool",
+    "default": true
+  }
+}

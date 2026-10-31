@@ -1,0 +1,37 @@
+{
+  "enabled": {
+    "description": "启用库街区 WIKI 查询",
+    "type": "bool",
+    "default": true
+  },
+  "timeout": {
+    "description": "普通查询子进程超时（秒，冷缓存首次查询较慢）",
+    "type": "int",
+    "default": 150
+  },
+  "team_timeout": {
+    "description": "配队引擎超时（秒，首次建画像较慢）",
+    "type": "int",
+    "default": 300
+  },
+  "top_teams": {
+    "description": "配队结果条数",
+    "type": "int",
+    "default": 3
+  },
+  "cooldown": {
+    "description": "同一会话指令冷却（秒）",
+    "type": "int",
+    "default": 5
+  },
+  "cache_hours": {
+    "description": "卡片结果缓存小时数",
+    "type": "int",
+    "default": 24
+  },
+  "cache_dir": {
+    "description": "缓存目录（留空用插件数据目录）",
+    "type": "string",
+    "default": ""
+  }
+}

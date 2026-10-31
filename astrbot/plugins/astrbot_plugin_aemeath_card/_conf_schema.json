@@ -1,0 +1,12 @@
+{
+  "enabled": {
+    "description": "启用卡片消息解析",
+    "type": "bool",
+    "default": true
+  },
+  "max_chars": {
+    "description": "解析后注入文本的最大字数",
+    "type": "int",
+    "default": 300
+  }
+}
