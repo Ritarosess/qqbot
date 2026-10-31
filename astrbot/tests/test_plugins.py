@@ -717,6 +717,27 @@ async def main():
     texts = "".join(getattr(s, "text", "") for s in flat)
     check("chishi: 这条也搬走流程", "搬过去了" in texts and len(cctx_n.sent) == 1)
 
+    # 问句/抱怨里带「搬」不能当成搬运指令
+    check("chishi: 问句不误判为搬运",
+          chishi.match_move("这小爱给这条怎么搬走了") is None
+          and chishi.match_move("文件倒是没搬走") is None
+          and chishi.match_move("这条怎么搬走了") is None)
+    check("chishi: 正常口令仍能触发",
+          chishi.match_move("这条也搬") == ("feed", "")
+          and chishi.match_move("再搬一次") == ("feed", "")
+          and chishi.match_move("搬过去") == ("feed", ""))
+
+    # 转发里的文件段至少保留文件名（没法重新上传，靠原生转发保真）
+    file_fwd = [{"type": "forward", "data": {"id": "ff", "content": [
+        {"type": "node", "data": {"nickname": "某群友", "content": [
+            {"type": "file", "data": {"name": "拉屎插件.zip"}},
+            {"type": "text", "data": {"text": "拿去吧"}}]}}]}}]
+    file_material = chishi.parse_seg_list(file_fwd)
+    joined = "".join(file_material.get("texts") or [])
+    node_parts = [p for n in file_material.get("nodes") or [] for p in n.get("parts") or []]
+    check("chishi: 文件段解析成文件名",
+          "拉屎插件.zip" in joined or any("拉屎插件.zip" in str(p[1]) for p in node_parts))
+
     # 手动搬送到所有 feedGroups（排除来源群）
     ccfg_multi = AstrBotConfig({
         "enabled": True, "watchGroups": "", "commentGroups": "",

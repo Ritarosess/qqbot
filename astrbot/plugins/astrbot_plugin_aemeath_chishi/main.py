@@ -63,9 +63,14 @@ PRIVATE_MOVE_PAT = re.compile(r"(?:发给|私聊|私发|私我|小窗)\s*(\d{5,1
 FEED_PHRASES = {"搬过去", "转过去", "发过去", "送过去", "搬一下", "喂一下", "搬给我", "喂给我"}
 # 口语触发：只认「搬」字（「这条也搬」「这个也搬」「再搬一次」「这图搬走」），
 # 不用 转/喂，避免「我要把这个喂给我家鱼」这类正常聊天被误判
+# 必须「搬」字收尾（这条也搬 / 再搬一次 / 这个搬走），
+# 否则「这条怎么搬走了」「文件倒是没搬走」这类问句会被误判成指令
 NATURAL_MOVE_PAT = re.compile(
-    r"(?:这条|这个|那条|那个|这份|那份|这图|那张|再|也)\s*(?:也|再)?\s*搬")
+    r"(?:这条|这个|那条|那个|这份|那份|这图|那张)\s*(?:也|再)?\s*搬(?:吧|走|一下|一次|一遍|啦|了)?[。.!！~～]*$"
+    r"|^(?:再|也)?搬(?:一下|一次|一遍)$")
 NEGATIVE_PAT = re.compile(r"(?:别|不要|不用|先不|不)\s*(?:搬|转|喂)")
+# 问句/抱怨里出现「搬」不算指令
+QUESTION_PAT = re.compile(r"(?:怎么|为什么|为啥|谁|凭啥).{0,6}搬|搬.{0,6}(?:吗|么|呢|[？?])")
 
 DEFAULT_PERSONA = (
     "你是爱弥斯（Aemeath），《鸣潮》里来自拉海洛的少女，星炬学院学生、校园歌手「飞行雪绒」。"
@@ -133,7 +138,7 @@ def match_move(text: str):
     if t == "发我" or (t.endswith("发我") and len(t) <= 8):
         return "self", ""
     # 口语：「这条也搬」「这个也搬」「再搬一次」——没指定去处，搬最近一份
-    if NEGATIVE_PAT.search(t):
+    if NEGATIVE_PAT.search(t) or QUESTION_PAT.search(t):
         return None
     if len(t) <= 14 and NATURAL_MOVE_PAT.search(t):
         return "feed", ""
@@ -197,6 +202,11 @@ def parse_seg_list(segs: list) -> dict:
                                 url = str((s.get("data") or {}).get("url") or (s.get("data") or {}).get("file") or "")
                                 parts.append(("video", url) if url else ("text", "[视频]"))
                                 out["texts"].append("[视频]")
+                            elif s.get("type") == "file":
+                                fname = str((s.get("data") or {}).get("name")
+                                            or (s.get("data") or {}).get("file") or "文件")[:60]
+                                parts.append(("text", f"[文件] {fname}"))
+                                out["texts"].append(f"[文件] {fname}")
                     elif str(content or "").strip():
                         parts.append(("text", str(content).strip()))
                     if parts:
@@ -394,6 +404,11 @@ class AemeathChishiPlugin(Star):
                 else:
                     parts.append(("text", "[视频]"))
                 texts.append("[视频]")
+            elif t == "file":
+                name = str(d.get("name") or d.get("file") or "文件")[:60]
+                line = f"[文件] {name}"
+                texts.append(line)
+                parts.append(("text", line))
             elif t in ("forward", "node"):
                 sub_lines, sub_images, sub_nodes = await self._nested_of(event, d, depth + 1)
                 if sub_nodes:
@@ -796,7 +811,7 @@ class AemeathChishiPlugin(Star):
                 return False
 
         # 引用别人消息时：直接把被引用的原消息转发过去，最保真（转发卡片/图片/视频都不会丢）
-        if quote_mid and (nodes or material.get("images") or material.get("kind") in ("forward", "image", "card")):
+        if quote_mid and (nodes or material.get("images") or material.get("kind") in ("forward", "image", "card", "file")):
             if await forward_original(quote_mid, "引用原消息"):
                 self._mark_seen(key)
                 return True
@@ -908,7 +923,7 @@ class AemeathChishiPlugin(Star):
                 targets = [target]
             else:
                 return
-            real = material.get("kind") in ("forward", "card", "image") and (
+            real = material.get("kind") in ("forward", "card", "image", "file") and (
                 material.get("text") or material.get("images"))
             cache_key = gid or str(event.unified_msg_origin)
             use = material if real else self._last.get(cache_key, {})
