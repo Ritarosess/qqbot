@@ -20,6 +20,8 @@ STATE_DIR = "/opt/astrbot/data/plugin_data/astrbot_plugin_aemeath_watchdog"
 STATE = os.path.join(STATE_DIR, "state.json")
 LOG = "/var/log/qqbot-watchdog.log"
 WEBHOOK = os.environ.get("WATCHDOG_WEBHOOK", "")
+# ntfy 手机推送：填主题地址，例如 https://ntfy.sh/你的随机主题
+NTFY_URL = os.environ.get("NTFY_URL", "")
 RESTART_GAP = 6 * 60 * 60  # 扫码登录期间重启只会把二维码刷掉，6 小时一次就够
 
 
@@ -153,6 +155,29 @@ def ensure_astrbot() -> None:
             log(f"拉起 AstrBot 失败: {exc}")
 
 
+def notify_ntfy(title: str, text: str, priority: str = "default", tags: str = "") -> None:
+    """手机推送：ntfy 主题地址由 NTFY_URL 提供；不填就跳过"""
+    if not NTFY_URL:
+        return
+    headers = {
+        "Title": title.encode("utf-8"),
+        "Priority": priority,
+    }
+    if tags:
+        headers["Tags"] = tags
+    try:
+        req = urllib.request.Request(
+            NTFY_URL,
+            data=text.encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            resp.read()
+    except Exception as exc:  # noqa: BLE001
+        log(f"ntfy 推送失败: {exc}")
+
+
 def notify_webhook(text):
     if not WEBHOOK:
         return
@@ -183,6 +208,7 @@ def main():
             save_state(st)
             log(f"已恢复，掉线 {secs // 60} 分钟")
             notify_webhook(f"QQ 机器人已恢复，掉线 {secs // 60} 分钟")
+            notify_ntfy("QQ 机器人已恢复", f"掉线 {secs // 60} 分钟，现在已经在线", "default", "white_check_mark")
         return
 
     if state == "unknown":
@@ -195,6 +221,7 @@ def main():
         save_state(st)
         log("检测到掉线")
         notify_webhook("QQ 机器人掉线，正在尝试自动恢复")
+        notify_ntfy("QQ 机器人掉线", "检测到掉线，正在尝试快捷登录恢复", "high", "warning")
 
     ok, why = quick_login()
     if ok:
@@ -210,6 +237,9 @@ def main():
         if restart_napcat():
             st["last_restart"] = now
             notify_webhook("QQ 机器人需要扫码登录，NapCat 已重启并生成新二维码")
+            notify_ntfy("需要扫码登录",
+                        "登录态失效，快捷登录救不回来。手机打开设置面板的 /qr 页面扫码（需挂 Tailscale）",
+                        "urgent", "rotating_light")
     save_state(st)
 
 

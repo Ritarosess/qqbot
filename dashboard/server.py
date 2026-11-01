@@ -22,6 +22,11 @@ CONFIG_DIR = os.environ.get("DASH_CONFIG_DIR", "/opt/astrbot/data/config")
 PLUGIN_DIR = os.environ.get("DASH_PLUGIN_DIR", "/opt/astrbot/plugins")
 TOKEN_FILE = os.environ.get("DASH_TOKEN_FILE", os.path.join(BASE_DIR, "token"))
 INDEX = os.path.join(BASE_DIR, "index.html")
+sys.path.insert(0, BASE_DIR)
+try:
+    from login_page import QR_HTML, qr_bytes, login_state
+except Exception:  # noqa: BLE001
+    QR_HTML, qr_bytes, login_state = "", None, None
 PORT = int(os.environ.get("DASH_PORT", "8610"))
 # 默认只听本机；要直接公网访问时设 DASH_HOST=0.0.0.0（务必配合安全组限制来源 IP）
 HOST = os.environ.get("DASH_HOST", "127.0.0.1")
@@ -393,6 +398,19 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, f.read(), "text/html; charset=utf-8")
             except OSError:
                 self._send(404, b"index.html missing", "text/plain; charset=utf-8")
+            return
+        if path == "/qr":
+            self._send(200, QR_HTML.encode("utf-8"), "text/html; charset=utf-8")
+            return
+        if path == "/api/qr":
+            data = qr_bytes() if qr_bytes else None
+            if data:
+                self._send(200, data, "image/png")
+            else:
+                self._json(404, {"error": "qr not ready"})
+            return
+        if path == "/api/login":
+            self._json(200, {"state": login_state() if login_state else "unknown"})
             return
         if not self._authed():
             self._json(401, {"error": "unauthorized"})
