@@ -12,6 +12,106 @@ import time
 
 QR_PATH = "/app/napcat/cache/qrcode.png"
 
+
+def _ws_call(action, params=None, timeout=5):
+    """最小 WebSocket 客户端：连 NapCat 3001 调 OneBot 接口"""
+    import base64
+    import json
+    import os
+    import socket
+    import struct
+
+    try:
+        s = socket.create_connection(("127.0.0.1", 3001), timeout=timeout)
+    except OSError:
+        return None
+    try:
+        key = base64.b64encode(os.urandom(16)).decode()
+        req = ("GET / HTTP/1.1\r\nHost: 127.0.0.1:3001\r\nUpgrade: websocket\r\n"
+               "Connection: Upgrade\r\nSec-WebSocket-Key: " + key +
+               "\r\nSec-WebSocket-Version: 13\r\n\r\n")
+        s.sendall(req.encode())
+        resp = b""
+        while b"\r\n\r\n" not in resp:
+            chunk = s.recv(4096)
+            if not chunk:
+                return None
+            resp += chunk
+        if "101" not in resp.split(b"\r\n", 1)[0].decode(errors="ignore"):
+            return None
+        payload = json.dumps({"action": action, "params": params or {}, "echo": "p"}).encode()
+        mask = os.urandom(4)
+        header = bytearray([0x81])
+        n = len(payload)
+        if n < 126:
+            header.append(0x80 | n)
+        elif n < 65536:
+            header.append(0x80 | 126)
+            header += struct.pack("!H", n)
+        else:
+            header.append(0x80 | 127)
+            header += struct.pack("!Q", n)
+        header += mask
+        s.sendall(bytes(header) + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+
+        buf = resp.split(b"\r\n\r\n", 1)[1] if b"\r\n\r\n" in resp else b""
+        while True:
+            while len(buf) < 2:
+                more = s.recv(4096)
+                if not more:
+                    return None
+                buf += more
+            length = buf[1] & 0x7F
+            offset = 2
+            if length == 126:
+                while len(buf) < 4:
+                    buf += s.recv(4096)
+                length = struct.unpack("!H", buf[2:4])[0]
+                offset = 4
+            elif length == 127:
+                while len(buf) < 10:
+                    buf += s.recv(4096)
+                length = struct.unpack("!Q", buf[2:10])[0]
+                offset = 10
+            while len(buf) < offset + length:
+                buf += s.recv(4096)
+            body = buf[offset:offset + length]
+            buf = buf[offset + length:]
+            try:
+                data = json.loads(body.decode())
+            except ValueError:
+                continue
+            if data.get("echo") == "p":
+                return data
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def napcat_account():
+    """返回 {uin, nickname} 或 None（没登录）"""
+    data = _ws_call("get_login_info")
+    if not isinstance(data, dict):
+        return None
+    info = data.get("data") or {}
+    if info.get("user_id"):
+        return {"uin": str(info["user_id"]), "nickname": str(info.get("nickname") or "")}
+    return None
+
+
+def astrbot_ws_port_alive():
+    try:
+        r = subprocess.run(
+            ["docker", "exec", "astrbot", "python", "-c",
+             "import socket;socket.create_connection(('127.0.0.1',6199),3).close();print('ok')"],
+            capture_output=True, text=True, timeout=25,
+        )
+        return r.returncode == 0 and "ok" in (r.stdout or "")
+    except Exception:  # noqa: BLE001
+        return None
+
+
 QR_HTML = """<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -50,8 +150,16 @@ QR_HTML = """<!doctype html>
     try{
       const r = await fetch("/api/login"); const d = await r.json();
       if (d.state === "online"){
-        st.textContent = "已登录，无需扫码"; st.className = "state online";
+        st.textContent = (d.nickname ? d.nickname + " 已登录" : "已登录") + "，无需扫码";
+        st.className = "state online";
         card.classList.remove("show"); empty.style.display = "none"; btn.style.display = "none";
+        return;
+      }
+      if (d.state === "adapter_down"){
+        st.textContent = "已登录，但 AstrBot 没连上"; st.className = "state scan";
+        card.classList.remove("show");
+        empty.textContent = "打开设置面板点「重启 AstrBot」即可恢复"; empty.style.display = "block";
+        btn.style.display = "none";
         return;
       }
       if (d.qr_age !== null && d.qr_age !== undefined && d.qr_age > 300){
@@ -108,33 +216,15 @@ def qr_bytes():
 
 
 def login_state():
-    """看最近 6 小时日志里最后一条关键行：收发=在线，二维码=要扫码"""
-    try:
-        out = subprocess.run(
-            ["docker", "logs", "--since", "6h", "napcat"],
-            capture_output=True, text=True, timeout=20,
-        )
-        text = (out.stdout or "") + (out.stderr or "")
-    except Exception:  # noqa: BLE001
-        return "unknown"
-    lines = [ln for ln in text.splitlines() if ln.strip()][-2000:]
-    for line in reversed(lines):
-        if "接收 <-" in line or "发送 ->" in line or "登录成功" in line:
-            return "online"
-        if "请扫描下面的二维码" in line or "Login Error" in line or "KickedOffLine" in line:
-            return "need_scan"
-        if "二维码已被扫描" in line:
-            return "waiting"
-    return "unknown"
+    """返回 (状态, 账号信息)
 
-
-def refresh_qr():
-    """重启 NapCat 生成新二维码（异步）"""
-    def run():
-        try:
-            subprocess.run(["docker", "restart", "napcat"], timeout=150, check=False)
-        except Exception:  # noqa: BLE001
-            pass
-
-    threading.Thread(target=run, daemon=True).start()
-    return True
+    online      NapCat 已登录 且 AstrBot 的 OneBot 端口在监听（真能用）
+    adapter_down 已登录但 AstrBot 端口不通（进程挂死，需要重启）
+    need_scan  NapCat 没登录，要扫码
+    """
+    account = napcat_account()
+    if not account:
+        return "need_scan", None
+    if astrbot_ws_port_alive() is False:
+        return "adapter_down", account
+    return "online", account

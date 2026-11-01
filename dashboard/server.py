@@ -410,9 +410,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(404, {"error": "qr not ready"})
             return
         if path == "/api/login":
+            state, account = login_state() if login_state else ("unknown", None)
             self._json(200, {
-                "state": login_state() if login_state else "unknown",
+                "state": state,
                 "qr_age": qr_age() if qr_age else None,
+                "uin": (account or {}).get("uin", ""),
+                "nickname": (account or {}).get("nickname", ""),
             })
             return
         if not self._authed():
