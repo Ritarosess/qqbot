@@ -143,8 +143,21 @@ def container_running(name: str) -> bool | None:
         return None
 
 
+def astrbot_ws_alive():
+    """AstrBot 内部的 OneBot 服务端口（6199）是否在监听；容器在跑但端口不通 = 进程挂死"""
+    try:
+        r = subprocess.run(
+            ["docker", "exec", "astrbot", "python", "-c",
+             "import socket;socket.create_connection(('127.0.0.1',6199),3).close();print('ok')"],
+            capture_output=True, text=True, timeout=25,
+        )
+        return r.returncode == 0 and "ok" in (r.stdout or "")
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def ensure_astrbot() -> None:
-    """AstrBot 进程偶尔会因为模型接口连续失败而整个退出，这里兜底拉起"""
+    """AstrBot 兜底：容器没跑就 start；容器在跑但 OneBot 端口不通就 restart"""
     running = container_running("astrbot")
     if running is False:
         log("检测到 AstrBot 未运行，正在拉起")
@@ -153,6 +166,16 @@ def ensure_astrbot() -> None:
             log("AstrBot 已执行 start")
         except Exception as exc:  # noqa: BLE001
             log(f"拉起 AstrBot 失败: {exc}")
+        return
+    if running and astrbot_ws_alive() is False:
+        log("AstrBot 在跑但 OneBot 端口(6199)不通，判定挂死，重启")
+        try:
+            subprocess.run(["docker", "restart", "astrbot"], timeout=180, check=False)
+            log("AstrBot 已重启")
+            notify_ntfy("AstrBot 已自动重启", "检测到 AstrBot 进程挂死（OneBot 端口不通），已重启恢复",
+                        "high", "wrench")
+        except Exception as exc:  # noqa: BLE001
+            log(f"重启 AstrBot 失败: {exc}")
 
 
 def notify_ntfy(title: str, text: str, priority: str = "default", tags: str = "") -> None:
