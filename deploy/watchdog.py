@@ -20,7 +20,7 @@ STATE_DIR = "/opt/astrbot/data/plugin_data/astrbot_plugin_aemeath_watchdog"
 STATE = os.path.join(STATE_DIR, "state.json")
 LOG = "/var/log/qqbot-watchdog.log"
 WEBHOOK = os.environ.get("WATCHDOG_WEBHOOK", "")
-RESTART_GAP = 60 * 60  # 重新登录要扫码，重启只会刷新二维码，别刷太勤
+RESTART_GAP = 6 * 60 * 60  # 扫码登录期间重启只会把二维码刷掉，6 小时一次就够
 
 
 def log(msg):
