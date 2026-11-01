@@ -251,6 +251,34 @@ class AemeathBiliPlugin(Star):
         async for item in self._watch_and_reply(event, target):
             yield item
 
+    @filter.command("文字轴")
+    async def timeline_cmd(self, event: AstrMessageEvent):
+        """把视频字幕整理成带时间点的文字轴"""
+        args = (event.message_str or "").strip().split(maxsplit=1)
+        target = args[1] if len(args) > 1 else ""
+        if not target:
+            yield event.plain_result("用法：/文字轴 <B站链接 或 BV号>")
+            return
+        try:
+            client = bili.Bili(cookie=str(self.config.get("biliCookie") or ""))
+            vid = client.resolve_input(target)
+            info = client.view(vid)
+            entries = client.subtitles_raw(info["bvid"], info["cid"])
+        except bili.BiliError as exc:
+            yield event.plain_result(f"这个看不了：{exc}")
+            return
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[aemeath_bili] 文字轴失败: %s", exc)
+            yield event.plain_result("刚才没抓到字幕，等下再试")
+            return
+        if not entries:
+            yield event.plain_result(
+                f"《{info['title'][:24]}》这个视频 B站没给 AI 字幕，我拿不到文字轴")
+            return
+        body = bili.format_timeline(entries, int(self.config.get("timelineChars", 1200)))
+        yield event.plain_result(
+            f"《{info['title'][:24]}》文字轴（共 {len(entries)} 段）：\n{body}")
+
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def auto_watch(self, event: AstrMessageEvent):
         if not self.config.get("enabled", True) or not self.config.get("autoWatch", True):

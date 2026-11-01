@@ -73,5 +73,10 @@
     "description": "语音识别模型名",
     "type": "string",
     "default": "FunAudioLLM/SenseVoiceSmall"
+  },
+  "timelineChars": {
+    "description": "/文字轴 最多输出多少字",
+    "type": "int",
+    "default": 1200
   }
 }

@@ -261,6 +261,25 @@ class Bili:
             raise BiliError(f"取流失败: {data.get('code')} {data.get('message')}")
         return ((data.get("data") or {}).get("dash") or {})
 
+    def subtitles_raw(self, bvid: str, cid: int) -> list[dict]:
+        """B站字幕原始条目：[{from, to, content}]；没有就空列表"""
+        try:
+            params = self._sign({"bvid": bvid, "cid": cid})
+            r = self._client.get("https://api.bilibili.com/x/player/wbi/v2", params=params)
+            data = r.json()
+            subs = (((data.get("data") or {}).get("subtitle") or {}).get("subtitles") or [])
+            if not subs:
+                return []
+            url = str(subs[0].get("subtitle_url") or "")
+            if url.startswith("//"):
+                url = "https:" + url
+            if not url:
+                return []
+            body = (self._client.get(url).json() or {}).get("body") or []
+            return [b for b in body if str(b.get("content") or "").strip()]
+        except Exception:  # noqa: BLE001
+            return []
+
     def subtitles(self, bvid: str, cid: int) -> str:
         """B站字幕（AI 字幕需要登录 cookie，没有就返回空串）"""
         try:
@@ -382,6 +401,27 @@ def make_storyboard(frames: list[str], out_path: str, cols: int = 4, labels: lis
     canvas.save(out_path, "JPEG", quality=86)
     return out_path
 
+
+
+def format_timeline(entries: list[dict], max_chars: int = 1200, max_items: int = 60) -> str:
+    """[{from,to,content}] → 带时间戳的行，超长截断"""
+    lines = []
+    used = 0
+    for item in (entries or [])[:max_items]:
+        try:
+            ts = int(float(item.get("from") or 0))
+        except (TypeError, ValueError):
+            ts = 0
+        text = str(item.get("content") or "").strip()
+        if not text:
+            continue
+        line = f"{ts // 60:02d}:{ts % 60:02d} {text}"
+        if used + len(line) > max_chars:
+            lines.append("…（后面还有，太长了）")
+            break
+        lines.append(line)
+        used += len(line) + 1
+    return "\n".join(lines)
 
 def fmt_duration(seconds: int) -> str:
     seconds = int(seconds or 0)
