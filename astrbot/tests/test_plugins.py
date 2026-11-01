@@ -319,6 +319,15 @@ def load_plugin(name):
     return mod
 
 
+def load_plugin_extra(name, module):
+    import importlib.util as _ilu
+    spec = _ilu.spec_from_file_location(f"{name}.{module}", PLUGINS / name / f"{module}.py")
+    mod = _ilu.module_from_spec(spec)
+    sys.modules[f"{name}.{module}"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
 PASS, FAIL = [], []
 
 
@@ -1980,6 +1989,30 @@ async def main():
     await mp2._extract("group:666", "小刘: 我家猫叫团子")
     check("memory: 自动抽取写入记忆",
           len(mp2._records) == 1 and "团子" in mp2._records[0]["text"])
+
+    # ---------- bili 看视频 ----------
+    bili_mod = load_plugin_extra("astrbot_plugin_aemeath_bili", "bili")
+    check("bili: 抠 BV 号",
+          bili_mod.extract_video_id("看看 https://www.bilibili.com/video/BV1GJ411x7h7?x=1") == "BV1GJ411x7h7")
+    check("bili: 抠 av 号", bili_mod.extract_video_id("av170001") == "av170001")
+    check("bili: 识别短链", bili_mod.find_short_link("看这个 https://b23.tv/abc123") == "https://b23.tv/abc123")
+    check("bili: 非 B站链接不算",
+          not bili_mod.has_bili_link("https://example.com/video/BV1GJ411x7h7"))
+
+    streams = [
+        {"height": 1080, "baseUrl": "a"},
+        {"height": 480, "baseUrl": "b"},
+        {"height": 360, "baseUrl": "c"},
+    ]
+    picked = bili_mod.pick_stream(streams, 480)
+    check("bili: 选不超过上限里最小的一路", picked and picked["height"] == 360)
+    check("bili: 没有合适高度就取最低",
+          bili_mod.pick_stream([{"height": 1080}, {"height": 720}], 480)["height"] == 720)
+
+    times = bili_mod.frame_times(213, 12)
+    check("bili: 抽帧时间点数量", len(times) == 12 and times[0] < 5 and times[-1] > 190)
+    check("bili: 网格布局", bili_mod.grid_layout(12, 4) == (4, 3))
+    check("bili: 时长格式化", bili_mod.fmt_duration(213) == "3:33" and bili_mod.fmt_duration(3671).startswith("1:01"))
 
     print(f"\n===== 通过 {len(PASS)} / {len(PASS) + len(FAIL)} =====")
     if FAIL:

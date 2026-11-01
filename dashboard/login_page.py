@@ -137,7 +137,7 @@ QR_HTML = """<!doctype html>
   <div class="state" id="state">读取中…</div>
   <div class="card" id="card"><img id="qr" alt="登录二维码"></div>
   <p class="empty" id="empty" style="display:none"></p>
-  <p class="hint">手机 QQ 扫码 → 点「允许登录」。<br>不方便扫屏幕：截图后 QQ 扫一扫 → 从相册选择。</p>
+  <p class="hint">用<b>另一块屏幕</b>显示这张码，手机 QQ 打开「扫一扫」<b>用摄像头</b>对着扫 → 点「允许登录」。<br>QQ 已禁止相册/长按识别二维码，只能摄像头扫。</p>
   <button id="refresh" style="display:none">刷新二维码</button>
 <script>
   const q = document.getElementById("qr"), card = document.getElementById("card");

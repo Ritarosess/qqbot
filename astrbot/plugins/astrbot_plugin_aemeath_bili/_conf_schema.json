@@ -1,0 +1,57 @@
+{
+  "enabled": {
+    "description": "启用看视频能力（关闭后 /看 也不可用）",
+    "type": "bool",
+    "default": true
+  },
+  "autoWatch": {
+    "description": "群里有人发 B站链接时自动看（每个视频只看一次，按去重分钟数控制）",
+    "type": "bool",
+    "default": true
+  },
+  "dedupeMinutes": {
+    "description": "同一个视频多久内不重复看（分钟）",
+    "type": "int",
+    "default": 120
+  },
+  "maxDuration": {
+    "description": "最长的视频时长（秒），超过就直接说太长不看",
+    "type": "int",
+    "default": 900
+  },
+  "maxSizeMB": {
+    "description": "下载画面轨的大小上限（MB），超了放弃",
+    "type": "int",
+    "default": 40
+  },
+  "maxHeight": {
+    "description": "画面高度上限（像素），360/480 够抽帧用了",
+    "type": "int",
+    "default": 480
+  },
+  "frames": {
+    "description": "抽几帧拼分镜图（越多越耗时）",
+    "type": "int",
+    "default": 12
+  },
+  "gridCols": {
+    "description": "分镜图每行几格",
+    "type": "int",
+    "default": 4
+  },
+  "topComments": {
+    "description": "带几条热评给模型当上下文",
+    "type": "int",
+    "default": 5
+  },
+  "commentChars": {
+    "description": "看后感的字数上限",
+    "type": "int",
+    "default": 60
+  },
+  "sendStoryboard": {
+    "description": "回复时把分镜图一起发出来（默认只发文字）",
+    "type": "bool",
+    "default": false
+  }
+}

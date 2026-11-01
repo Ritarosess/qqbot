@@ -1,0 +1,6 @@
+name: astrbot_plugin_aemeath_bili
+display_name: 爱弥斯·看视频
+desc: 给一个 B站链接就真的去看：抓画面抽帧拼分镜图，连同标题/简介/热评交给模型，用她自己的口气聊两句
+version: 0.1.0
+author: Aemeath
+repo: <REPO_URL>
