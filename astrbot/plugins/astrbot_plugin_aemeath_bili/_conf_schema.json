@@ -5,9 +5,9 @@
     "default": true
   },
   "autoWatch": {
-    "description": "群里有人发 B站链接时自动看（每个视频只看一次，按去重分钟数控制）",
+    "description": "群里有人发 B站链接时是否自动看（默认关：只在被要求时看）",
     "type": "bool",
-    "default": true
+    "default": false
   },
   "dedupeMinutes": {
     "description": "同一个视频多久内不重复看（分钟）",
@@ -83,5 +83,20 @@
     "description": "/总结 输出的字数上限",
     "type": "int",
     "default": 320
+  },
+  "textFrames": {
+    "description": "没有字幕时抽多少帧（靠画面上的文案读内容）",
+    "type": "int",
+    "default": 24
+  },
+  "textCellWidth": {
+    "description": "没有字幕时每格画面宽度（越大文字越清楚、越费 token）",
+    "type": "int",
+    "default": 640
+  },
+  "gridRows": {
+    "description": "分镜图每列几行（配合每行格数决定一张图多少格）",
+    "type": "int",
+    "default": 3
   }
 }
