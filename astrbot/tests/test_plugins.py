@@ -717,6 +717,39 @@ async def main():
     texts = "".join(getattr(s, "text", "") for s in flat)
     check("chishi: 这条也搬走流程", "搬过去了" in texts and len(cctx_n.sent) == 1)
 
+    # 含视频 / 成人关键词：自动搬一律跳过
+    def _guard_cfg():
+        return AstrBotConfig({
+            "enabled": True, "watchGroups": "", "commentGroups": "",
+            "feedGroups": "900000011", "feedPrivateTarget": "10001",
+            "commentEnabled": True, "feedProbability": 1.0, "ownerQQ": "",
+            "feedMinLevel": 1, "feedMaxPerHour": 20, "maxChars": 60000,
+            "maxImages": 6, "dedupeMinutes": 5, "persona": "", "feedBlockList": "",
+            "feedForceTags": "抽象", "feedForceKeywords": "", "feedSkipTags": "R18",
+            "feedSkipKeywords": "", "biliAutoFeed": False, "abstractOnlyGroups": "",
+            "videoAutoFeed": False, "feedAdultKeywords": "R18,18+,成人,色情,裸",
+        })
+
+    vid_fwd2 = [{"type": "forward", "data": {"id": "fv2", "content": [
+        {"type": "node", "data": {"nickname": "某群友", "content": [
+            {"type": "text", "data": {"text": "看我拍的视频"}},
+            {"type": "video", "data": {"url": "https://example.com/x.mp4"}}]}}]}}]
+    cctx_vid = Context()
+    cctx_vid.provider = _ShiProvider()
+    cp_vid = chishi.AemeathChishiPlugin(cctx_vid, _guard_cfg())
+    ev_v = AstrMessageEvent("", group_id="956")
+    ev_v.message_obj = _RawObj(vid_fwd2)
+    await drain(cp_vid.on_message(ev_v))
+    check("chishi: 含视频默认不自动搬", len(cctx_vid.sent) == 0)
+
+    cctx_ad = Context()
+    cctx_ad.provider = _ShiProvider()
+    cp_ad = chishi.AemeathChishiPlugin(cctx_ad, _guard_cfg())
+    ev_ad = AstrMessageEvent("", group_id="957")
+    ev_ad.message_obj = _RawObj([{"type": "text", "data": {"text": "这是R18内容，别发出去"}}])
+    await drain(cp_ad.on_message(ev_ad))
+    check("chishi: 成人关键词不自动搬", len(cctx_ad.sent) == 0)
+
     # 问句/抱怨里带「搬」不能当成搬运指令
     check("chishi: 问句不误判为搬运",
           chishi.match_move("这小爱给这条怎么搬走了") is None

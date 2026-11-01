@@ -118,5 +118,15 @@
     "description": "评语用的人设（留空 = 自动读取人设插件）",
     "type": "text",
     "default": ""
+  },
+  "videoAutoFeed": {
+    "description": "含视频的内容是否允许自动搬史（默认关闭：视频画面没法审核，容易漏掉 R18；手动搬不受限制）",
+    "type": "bool",
+    "default": false
+  },
+  "feedAdultKeywords": {
+    "description": "成人内容关键词黑名单（逗号分隔）：文本命中任一词就直接不自动搬，不依赖模型打标签",
+    "type": "string",
+    "default": "R18,18+,成人,色情,裸,露点,做爱,性爱,性交,口交,自慰,黄片,涩涩,强奸,迷奸,偷拍,约炮,未成年"
   }
 }

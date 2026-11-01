@@ -569,8 +569,15 @@ class AemeathChishiPlugin(Star):
                (images and "image") or "text"
         body = "\n\n".join(texts)
         body = body[: int(self.config.get("maxChars", 60000))]
+        has_video = any(p[0] == "video" for n in nodes for p in (n.get("parts") or []))
+        if not has_video:
+            try:
+                has_video = any(isinstance(s, dict) and s.get("type") == "video"
+                                for s in self._raw_segs(event))
+            except Exception:  # noqa: BLE001
+                pass
         result = {
-            "kind": kind, "text": body, "nodes": nodes,
+            "kind": kind, "text": body, "nodes": nodes, "has_video": has_video,
             "urls": list(dict.fromkeys(urls))[:3],
             "images": images[: int(self.config.get("maxImages", 6))],
         }
@@ -985,6 +992,18 @@ class AemeathChishiPlugin(Star):
         event.stop_event()
 
         # 3) 自动搬运
+        # 0) 硬拦截：成人关键词（文本里出现就直接不搬，不依赖模型打标签）
+        adult_hit = hit_keywords(str(self.config.get("feedAdultKeywords") or ""),
+                                 material.get("text") or "")
+        if adult_hit:
+            logger.info("[aemeath_chishi] 命中成人关键词「%s」，不搬", adult_hit)
+            return
+
+        # 0.5) 含视频的内容默认不自动搬：画面没法审核，容易漏掉 R18
+        if material.get("has_video") and not self.config.get("videoAutoFeed", False):
+            logger.info("[aemeath_chishi] 内容含视频，默认不自动搬（需要搬运请手动）")
+            return
+
         # 0) 硬拦截：R18 等禁止搬运的标签，优先级最高（强制搬运也拦）
         skip_tags = str(self.config.get("feedSkipTags") or "")
         skip_hit = next((t for t in tag if in_list(skip_tags, t)), "")
