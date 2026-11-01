@@ -115,6 +115,8 @@ class AemeathBiliPlugin(Star):
         try:
             client.download(stream["baseUrl"], video_path, max_mb * 1024 * 1024)
             dialog = await self._dialog(client, dash, info, work)
+            if dialog:
+                logger.info("[aemeath_bili] 拿到台词 %d 字（%s）", len(dialog), info["bvid"])
             times = bili.frame_times(info["duration"], frames_n)
             files = await asyncio.to_thread(bili.extract_frames, video_path, times, work)
             labels = [bili.fmt_duration(int(t)) for t in times][: len(files)]
