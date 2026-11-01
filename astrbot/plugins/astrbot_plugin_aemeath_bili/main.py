@@ -47,6 +47,7 @@ def to_data_uri(path: str) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(raw).decode()
 
 
+WATCH_HINT = re.compile(r"(看看|看一下|看下|瞧瞧|怎么样|讲了|说说|评价|点评|如何|值不值)")
 SUMMARY_HINT = re.compile(r"(总结|概括|讲了什么|讲了啥|说了什么|内容是什么|啥内容|大意|梳理|文字轴|时间轴)")
 
 CACHE_DIR = os.environ.get("AEMEATH_BILI_CACHE") or os.path.join(
@@ -338,16 +339,23 @@ class AemeathBiliPlugin(Star):
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def auto_watch(self, event: AstrMessageEvent):
-        if not self.config.get("enabled", True) or not self.config.get("autoWatch", True):
+        if not self.config.get("enabled", True):
             return
         text = (event.message_str or "").strip()
         if not text or text.startswith("/"):
             return
         if not bili.has_bili_link(text):
             return
+        # 明确让她看/总结 → 一定动手；只是随手贴链接 → 看 autoWatch 开关
+        asked = bool(SUMMARY_HINT.search(text) or WATCH_HINT.search(text))
+        if not asked and not self.config.get("autoWatch", False):
+            return
         vid = bili.extract_video_id(text)
         if not vid:
-            return  # 短链交给手动指令，避免额外请求
+            try:
+                vid = bili.Bili(cookie=str(self.config.get("biliCookie") or "")).resolve_input(text)
+            except Exception:  # noqa: BLE001
+                return
         if self._seen_recently(vid) or vid in self._busy:
             return
         self._busy.add(vid)
@@ -364,12 +372,20 @@ class AemeathBiliPlugin(Star):
             self._busy.discard(vid)
 
     def _chain(self, comment: str, board: str | None):
+        """本地/远程通用的消息链：优先用 core 里的 MessageChain"""
         import astrbot.api.message_components as Comp  # noqa: PLC0415
-        from astrbot.api.message_components import MessageChain  # noqa: PLC0415
+
         chain = [Comp.Plain(comment)]
         if self.config.get("sendStoryboard", False) and board and os.path.exists(board):
             try:
                 chain.append(Comp.Image.fromFileSystem(board))
             except Exception:  # noqa: BLE001
                 pass
-        return MessageChain(chain=chain)
+        for path in ("astrbot.core.message.message_event_result",
+                     "astrbot.api.message_components"):
+            try:
+                mod = __import__(path, fromlist=["MessageChain"])
+                return mod.MessageChain(chain=chain)
+            except Exception:  # noqa: BLE001
+                continue
+        return chain
