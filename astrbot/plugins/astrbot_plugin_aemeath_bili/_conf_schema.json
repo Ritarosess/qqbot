@@ -17,12 +17,12 @@
   "maxDuration": {
     "description": "最长的视频时长（秒），超过就直接说太长不看",
     "type": "int",
-    "default": 900
+    "default": 1800
   },
   "maxSizeMB": {
     "description": "下载画面轨的大小上限（MB），超了放弃",
     "type": "int",
-    "default": 40
+    "default": 80
   },
   "maxHeight": {
     "description": "画面高度上限（像素），360/480 够抽帧用了",
