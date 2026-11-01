@@ -24,9 +24,9 @@ TOKEN_FILE = os.environ.get("DASH_TOKEN_FILE", os.path.join(BASE_DIR, "token"))
 INDEX = os.path.join(BASE_DIR, "index.html")
 sys.path.insert(0, BASE_DIR)
 try:
-    from login_page import QR_HTML, qr_bytes, login_state
+    from login_page import QR_HTML, qr_bytes, login_state, qr_age, refresh_qr
 except Exception:  # noqa: BLE001
-    QR_HTML, qr_bytes, login_state = "", None, None
+    QR_HTML, qr_bytes, login_state, qr_age, refresh_qr = "", None, None, None, None
 PORT = int(os.environ.get("DASH_PORT", "8610"))
 # 默认只听本机；要直接公网访问时设 DASH_HOST=0.0.0.0（务必配合安全组限制来源 IP）
 HOST = os.environ.get("DASH_HOST", "127.0.0.1")
@@ -410,7 +410,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(404, {"error": "qr not ready"})
             return
         if path == "/api/login":
-            self._json(200, {"state": login_state() if login_state else "unknown"})
+            self._json(200, {
+                "state": login_state() if login_state else "unknown",
+                "qr_age": qr_age() if qr_age else None,
+            })
             return
         if not self._authed():
             self._json(401, {"error": "unauthorized"})
@@ -465,6 +468,10 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/restart":
             ok, out = restart_bot()
             self._json(200 if ok else 500, {"ok": ok, "output": out})
+            return
+        if parsed.path == "/api/qr/refresh":
+            ok = bool(refresh_qr()) if refresh_qr else False
+            self._json(200 if ok else 500, {"ok": ok})
             return
         if parsed.path == "/api/memory":
             try:
