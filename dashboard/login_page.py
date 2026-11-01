@@ -228,3 +228,17 @@ def login_state():
     if astrbot_ws_port_alive() is False:
         return "adapter_down", account
     return "online", account
+
+
+def refresh_qr():
+    """重启 NapCat 生成新二维码（异步，页面等 30 秒）"""
+    import threading
+
+    def run():
+        try:
+            subprocess.run(["docker", "restart", "napcat"], timeout=150, check=False)
+        except Exception:  # noqa: BLE001
+            pass
+
+    threading.Thread(target=run, daemon=True).start()
+    return True

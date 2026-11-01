@@ -25,7 +25,10 @@ INDEX = os.path.join(BASE_DIR, "index.html")
 sys.path.insert(0, BASE_DIR)
 try:
     from login_page import QR_HTML, qr_bytes, login_state, qr_age, refresh_qr
-except Exception:  # noqa: BLE001
+except Exception as _exc:  # noqa: BLE001
+    import traceback
+    traceback.print_exc()
+    print(f"[dashboard] login_page 载入失败: {_exc}", flush=True)
     QR_HTML, qr_bytes, login_state, qr_age, refresh_qr = "", None, None, None, None
 PORT = int(os.environ.get("DASH_PORT", "8610"))
 # 默认只听本机；要直接公网访问时设 DASH_HOST=0.0.0.0（务必配合安全组限制来源 IP）
