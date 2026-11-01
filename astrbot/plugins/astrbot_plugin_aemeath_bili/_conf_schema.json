@@ -53,5 +53,25 @@
     "description": "回复时把分镜图一起发出来（默认只发文字）",
     "type": "bool",
     "default": false
+  },
+  "biliCookie": {
+    "description": "B站 cookie（可选，填 SESSDATA=xxx 可拿 AI 字幕/总结；不填也能看画面）",
+    "type": "string",
+    "default": ""
+  },
+  "asrBase": {
+    "description": "语音识别接口地址（OpenAI 兼容，如 https://api.siliconflow.cn/v1；留空=不做台词识别）",
+    "type": "string",
+    "default": ""
+  },
+  "asrKey": {
+    "description": "语音识别 API Key",
+    "type": "string",
+    "default": ""
+  },
+  "asrModel": {
+    "description": "语音识别模型名",
+    "type": "string",
+    "default": "FunAudioLLM/SenseVoiceSmall"
   }
 }

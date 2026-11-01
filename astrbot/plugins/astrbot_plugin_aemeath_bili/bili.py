@@ -109,13 +109,46 @@ class BiliError(RuntimeError):
     pass
 
 
+
+def pick_audio(audios: list[dict]) -> dict | None:
+    """挑码率最低的音轨，转写够用"""
+    if not audios:
+        return None
+
+    def bw(s):
+        try:
+            return int(s.get("bandwidth") or 0) or 999999999
+        except (TypeError, ValueError):
+            return 999999999
+
+    return min(audios, key=bw)
+
+
+def parse_subtitle_body(body: list[dict], limit: int = 4000) -> str:
+    """B站字幕 JSON 的 body → 纯文本（按时间顺序）"""
+    parts = []
+    for item in body or []:
+        content = str(item.get("content") or "").strip()
+        if content:
+            parts.append(content)
+    text = " ".join(parts)
+    return text[:limit]
+
+
 class Bili:
-    def __init__(self, timeout: float = 20.0):
+    def __init__(self, timeout: float = 20.0, cookie: str = ""):
         if httpx is None:
             raise BiliError("缺少 httpx 依赖")
+        jar = {"buvid3": self._fake_buvid(), "b_nut": str(int(time.time()))}
+        for part in (cookie or "").split(";"):
+            if "=" in part:
+                k, v = part.split("=", 1)
+                k, v = k.strip(), v.strip()
+                if k and v:
+                    jar[k] = v
         self._client = httpx.Client(
             headers=HEADERS,
-            cookies={"buvid3": self._fake_buvid(), "b_nut": str(int(time.time()))},
+            cookies=jar,
             timeout=timeout,
             follow_redirects=True,
         )
@@ -216,6 +249,66 @@ class Bili:
         if not picked:
             raise BiliError("没有可用画面流")
         return picked
+
+    def playurl_dash(self, bvid: str, cid: int) -> dict:
+        """返回完整 dash（画面 + 音轨）"""
+        params = self._sign({
+            "bvid": bvid, "cid": cid, "qn": 64, "fnval": 16, "fnver": 0, "fourk": 0,
+        })
+        r = self._client.get("https://api.bilibili.com/x/player/wbi/playurl", params=params)
+        data = r.json()
+        if data.get("code") != 0:
+            raise BiliError(f"取流失败: {data.get('code')} {data.get('message')}")
+        return ((data.get("data") or {}).get("dash") or {})
+
+    def subtitles(self, bvid: str, cid: int) -> str:
+        """B站字幕（AI 字幕需要登录 cookie，没有就返回空串）"""
+        try:
+            params = self._sign({"bvid": bvid, "cid": cid})
+            r = self._client.get("https://api.bilibili.com/x/player/wbi/v2", params=params)
+            data = r.json()
+            subs = (((data.get("data") or {}).get("subtitle") or {}).get("subtitles") or [])
+            if not subs:
+                return ""
+            url = str(subs[0].get("subtitle_url") or "")
+            if url.startswith("//"):
+                url = "https:" + url
+            if not url:
+                return ""
+            body = self._client.get(url).json()
+            return parse_subtitle_body(body.get("body") or [])
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def download_audio(self, dash: dict, path: str, max_bytes: int) -> bool:
+        audio = pick_audio(dash.get("audio") or [])
+        if not audio:
+            return False
+        try:
+            self.download(audio["baseUrl"], path, max_bytes)
+            return True
+        except BiliError:
+            return False
+
+    def transcribe(self, audio_path: str, asr_base: str, asr_key: str, asr_model: str) -> str:
+        """把音频丢给 OpenAI 兼容的 /audio/transcriptions"""
+        if httpx is None or not asr_base:
+            return ""
+        url = asr_base.rstrip("/") + "/audio/transcriptions"
+        headers = {"Authorization": f"Bearer {asr_key}"} if asr_key else {}
+        try:
+            with open(audio_path, "rb") as f:
+                files = {"file": ("a.mp3", f, "audio/mpeg")}
+                data = {"model": asr_model or "FunAudioLLM/SenseVoiceSmall"}
+                r = httpx.post(url, headers=headers, files=files, data=data, timeout=180)
+            if r.status_code != 200:
+                return ""
+            payload = r.json()
+            if isinstance(payload, dict):
+                return str(payload.get("text") or "")[:4000]
+            return ""
+        except Exception:  # noqa: BLE001
+            return ""
 
     def comments(self, aid: int, n: int = 5) -> list[str]:
         try:

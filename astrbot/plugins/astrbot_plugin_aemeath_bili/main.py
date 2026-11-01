@@ -17,6 +17,7 @@ import asyncio
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import time
 
@@ -53,6 +54,7 @@ PROMPT = """这是 B站视频《{title}》（UP：{owner}，时长 {duration}，
 每格左上角是该画面的时间点。
 
 简介：{desc}
+{dialog}
 {comments}
 {material_note}
 
@@ -92,7 +94,7 @@ class AemeathBiliPlugin(Star):
         max_mb = int(self.config.get("maxSizeMB", 40))
         frames_n = int(self.config.get("frames", 12))
 
-        client = bili.Bili()
+        client = bili.Bili(cookie=str(self.config.get("biliCookie") or ""))
         vid = client.resolve_input(text)
         info = client.view(vid)
         if info["duration"] > max_dur:
@@ -100,8 +102,11 @@ class AemeathBiliPlugin(Star):
         if not info.get("cid"):
             raise bili.BiliError("拿不到 cid")
 
-        stream = client.playurl(info["bvid"], info["cid"],
-                                int(self.config.get("maxHeight", 480)))
+        dash = client.playurl_dash(info["bvid"], info["cid"])
+        stream = bili.pick_stream(dash.get("video") or [],
+                                  int(self.config.get("maxHeight", 480)))
+        if not stream:
+            raise bili.BiliError("没有可用画面流")
 
         work = os.path.join(CACHE_DIR, self._cache_key(info["bvid"]))
         shutil.rmtree(work, ignore_errors=True)
@@ -109,6 +114,7 @@ class AemeathBiliPlugin(Star):
         video_path = os.path.join(work, "v.m4s")
         try:
             client.download(stream["baseUrl"], video_path, max_mb * 1024 * 1024)
+            dialog = await self._dialog(client, dash, info, work)
             times = bili.frame_times(info["duration"], frames_n)
             files = await asyncio.to_thread(bili.extract_frames, video_path, times, work)
             labels = [bili.fmt_duration(int(t)) for t in times][: len(files)]
@@ -128,6 +134,7 @@ class AemeathBiliPlugin(Star):
             duration=bili.fmt_duration(info["duration"]),
             view=bili.fmt_num(stat.get("view")),
             desc=(info["desc"] or "（无）")[:300],
+            dialog=dialog,
             comments=comment_block,
             material_note=MATERIAL_NOTE,
             chars=int(self.config.get("commentChars", 60)),
@@ -150,6 +157,43 @@ class AemeathBiliPlugin(Star):
         if not text:
             text = f"看完了《{info['title'][:20]}》，{bili.fmt_duration(info['duration'])}，画面挺密集的"
         return text[:400], board
+
+    async def _dialog(self, client, dash: dict, info: dict, work: str) -> str:
+        """台词：优先 B站字幕（需要 cookie），否则走语音识别（需要配 ASR）"""
+        text = ""
+        try:
+            text = client.subtitles(info["bvid"], info["cid"])
+        except Exception:  # noqa: BLE001
+            text = ""
+        if text:
+            return "台词（B站字幕）：\n" + text[:1200]
+
+        asr_base = str(self.config.get("asrBase") or "").strip()
+        if not asr_base:
+            return ""
+        audio = os.path.join(work, "a.m4s")
+        mp3 = os.path.join(work, "a.mp3")
+        try:
+            if not client.download_audio(dash, audio, 30 * 1024 * 1024):
+                return ""
+            await asyncio.to_thread(
+                subprocess.run,
+                ["ffmpeg", "-y", "-loglevel", "error", "-i", audio, "-vn",
+                 "-ac", "1", "-ar", "16000", "-b:a", "48k", mp3],
+                capture_output=True, timeout=180, check=False,
+            )
+            if not os.path.exists(mp3):
+                return ""
+            got = await asyncio.to_thread(
+                client.transcribe, mp3, asr_base,
+                str(self.config.get("asrKey") or ""),
+                str(self.config.get("asrModel") or ""),
+            )
+            return ("台词（语音识别）：\n" + got[:1200]) if got else ""
+        finally:
+            for f in (audio, mp3):
+                if os.path.exists(f):
+                    os.remove(f)
 
     def _persona(self) -> str:
         try:
