@@ -364,6 +364,11 @@ class AemeathBiliPlugin(Star):
             comment, board = await self.watch(vid, mode=mode)
             self._seen[vid] = time.time()
             await self.context.send_message(event.unified_msg_origin, self._chain(comment, board))
+            # 已经由插件回了，拦住后面的大模型常规回复，避免"总结完又补一句我听不到声音"
+            try:
+                event.stop_event()
+            except Exception:  # noqa: BLE001
+                pass
         except bili.BiliError as exc:
             logger.info("[aemeath_bili] 自动看失败: %s", exc)
         except Exception as exc:  # noqa: BLE001
