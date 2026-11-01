@@ -163,6 +163,7 @@ python dashboard/tests/test_server.py   # 面板后端测试
 
 ## 文档
 
+- [插件说明（全部插件总览）](docs/插件说明.md)
 - [指令说明](docs/指令说明.md)
 - [吃史仙人说明](docs/吃史仙人说明.md)
 - [记忆说明](docs/记忆说明.md)
