@@ -16,6 +16,7 @@
 |---|---|
 | `astrbot_plugin_aemeath_persona` | 每轮注入角色人设（说话方式、口头禅、禁忌、被骂时的固定玩法） |
 | `astrbot_plugin_aemeath_group_chat` | 群聊概率插话：概率、冷却、最短字数，支持热加载与 `/水群` 调整 |
+| `astrbot_plugin_aemeath_bili` | 看视频：抓 B站 画面抽帧拼分镜图 + 标题/简介/热评交给模型点评 |
 | `astrbot_plugin_aemeath_memory` | 长期记忆：自动抽取人物/事件/梗，按清晰度阶梯衰减，对话时注入，支持历史回填 |
 | `astrbot_plugin_aemeath_emoji` | 把回复里的 `[emoji]` / `[emoji:角色]` 换成表情图片 |
 | `astrbot_plugin_aemeath_voice` | 语音合成（CosyVoice）：`/voice`、前缀触发、概率语音 |
