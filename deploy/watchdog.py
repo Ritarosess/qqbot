@@ -218,10 +218,19 @@ def main():
     if not st.get("offline_since"):
         st["offline_since"] = now
         st["reason"] = ""
+        st["last_push"] = now
         save_state(st)
         log("检测到掉线")
         notify_webhook("QQ 机器人掉线，正在尝试自动恢复")
         notify_ntfy("QQ 机器人掉线", "检测到掉线，正在尝试快捷登录恢复", "high", "warning")
+    else:
+        last_push = float(st.get("last_push") or 0)
+        if now - last_push > 30 * 60:
+            mins = int((now - float(st["offline_since"])) // 60)
+            st["last_push"] = now
+            save_state(st)
+            notify_ntfy("仍然掉线", f"已经掉线 {mins} 分钟了，还是没恢复。打开设置面板的 /qr 页面扫码",
+                        "urgent", "rotating_light")
 
     ok, why = quick_login()
     if ok:
@@ -231,6 +240,13 @@ def main():
         return
 
     st["reason"] = f"需要扫码（{why[:40]}）"
+    last_push = float(st.get("last_push") or 0)
+    if now - last_push > 30 * 60:
+        st["last_push"] = now
+        save_state(st)
+        notify_ntfy("需要扫码登录",
+                    "登录态失效，快捷登录救不回来。手机打开设置面板的 /qr 页面扫码（需挂 Tailscale）",
+                    "urgent", "rotating_light")
     last = float(st.get("last_restart") or 0)
     if now - last > RESTART_GAP:
         log("快捷登录失败，重启 NapCat 生成新二维码")
