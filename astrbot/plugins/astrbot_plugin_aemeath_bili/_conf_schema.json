@@ -98,5 +98,15 @@
     "description": "分镜图每列几行（配合每行格数决定一张图多少格）",
     "type": "int",
     "default": 3
+  },
+  "workerTimeout": {
+    "description": "单个视频处理进程的超时（秒），超时直接杀掉",
+    "type": "int",
+    "default": 300
+  },
+  "maxConcurrent": {
+    "description": "同时处理几个视频（默认 1，避免抢内存）",
+    "type": "int",
+    "default": 1
   }
 }

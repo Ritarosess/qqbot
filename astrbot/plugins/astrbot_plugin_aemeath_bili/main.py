@@ -14,10 +14,12 @@
 取流用 WBI 签名（详见 bili.py）。只下画面轨，不看音轨。
 """
 import asyncio
+import json
 import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -92,6 +94,7 @@ class AemeathBiliPlugin(Star):
         self.config = config
         self._seen: dict[str, float] = {}
         self._busy: set[str] = set()
+        self._sem = asyncio.Semaphore(max(1, int(self.config.get("maxConcurrent", 1))))
         os.makedirs(CACHE_DIR, exist_ok=True)
         logger.info("[aemeath_bili] 看视频插件已加载")
 
@@ -106,66 +109,84 @@ class AemeathBiliPlugin(Star):
         self._seen = {k: v for k, v in self._seen.items() if now - v < window}
         return vid in self._seen
 
-    async def watch(self, text: str, mode: str = "comment") -> tuple[str, str | None]:
-        """mode=comment 聊两句；mode=summary 认真总结"""
-        max_dur = int(self.config.get("maxDuration", 900))
-        max_mb = int(self.config.get("maxSizeMB", 40))
-        frames_n = int(self.config.get("frames", 12))
+    async def _run_worker(self, text: str) -> dict:
+        """把下载/抽帧丢到独立进程，超时或内存超限都只杀 worker，不影响机器人"""
+        import hashlib
 
-        client = bili.Bili(cookie=str(self.config.get("biliCookie") or ""))
-        vid = await asyncio.to_thread(client.resolve_input, text)
-        info = await asyncio.to_thread(client.view, vid)
-        if info["duration"] > max_dur:
-            return (f"这个有 {bili.fmt_duration(info['duration'])} 诶，太长了，我只看十分钟以内的", None)
-        if not info.get("cid"):
-            raise bili.BiliError("拿不到 cid")
-
-        dash = await asyncio.to_thread(client.playurl_dash, info["bvid"], info["cid"])
-        stream = bili.pick_stream(dash.get("video") or [],
-                                  int(self.config.get("maxHeight", 480)))
-        if not stream:
-            raise bili.BiliError("没有可用画面流")
-
-        work = os.path.join(CACHE_DIR, self._cache_key(info["bvid"]))
+        key = hashlib.sha1((text or "").encode()).hexdigest()[:12]
+        work = os.path.join(CACHE_DIR, key)
         shutil.rmtree(work, ignore_errors=True)
         os.makedirs(work, exist_ok=True)
-        video_path = os.path.join(work, "v.m4s")
+        has_dialog = True  # worker 自己判断有没有字幕，这里只是传参
+        req = {
+            "vid": text,
+            "cookie": str(self.config.get("biliCookie") or ""),
+            "maxHeight": int(self.config.get("maxHeight", 480)),
+            "maxSizeMB": int(self.config.get("maxSizeMB", 40)),
+            "maxDuration": int(self.config.get("maxDuration", 1800)),
+            "topComments": int(self.config.get("topComments", 5)),
+            "cols": int(self.config.get("gridCols", 4)),
+            "workDir": work,
+            "wantDialog": has_dialog,
+            "frames": int(self.config.get("frames", 12)),
+            "textFrames": int(self.config.get("textFrames", 24)),
+            "textCellWidth": int(self.config.get("textCellWidth", 640)),
+            "perBoard": int(self.config.get("gridCols", 4)) * int(self.config.get("gridRows", 3)),
+        }
+        worker = os.path.join(os.path.dirname(os.path.abspath(__file__)), "worker.py")
+        timeout = float(self.config.get("workerTimeout", 300))
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, worker, json.dumps(req, ensure_ascii=False),
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
         try:
-            await asyncio.to_thread(client.download, stream["baseUrl"], video_path,
-                                    max_mb * 1024 * 1024)
-            dialog = await self._dialog(client, dash, info, work)
-            if dialog:
-                logger.info("[aemeath_bili] 拿到台词 %d 字（%s）", len(dialog), info["bvid"])
-            # 有字幕按原来的密度；没字幕就多抽一些，靠画面上的文案读内容
-            if dialog:
-                frames_n = int(self.config.get("frames", 12))
-                cell_w = 480
-            else:
-                frames_n = int(self.config.get("textFrames", 24))
-                cell_w = int(self.config.get("textCellWidth", 640))
-            times = bili.frame_times(info["duration"], frames_n)
-            files = await asyncio.to_thread(bili.extract_frames, video_path, times, work, cell_w)
-            labels = [bili.fmt_duration(int(t)) for t in times][: len(files)]
-            per_board = int(self.config.get("gridCols", 4)) * int(self.config.get("gridRows", 3))
-            boards = []
-            for bi in range(0, len(files), max(1, per_board)):
-                chunk = files[bi:bi + per_board]
-                out = os.path.join(work, f"board{bi // max(1, per_board)}.jpg")
-                await asyncio.to_thread(
-                    bili.make_storyboard, chunk, out,
-                    int(self.config.get("gridCols", 4)), labels[bi:bi + len(chunk)])
-                boards.append(out)
-            board = boards[0] if boards else ""
-        finally:
-            if os.path.exists(video_path):
-                os.remove(video_path)
+            out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return {"ok": False, "error": "timeout"}
+        text_out = (out or b"").decode("utf-8", "ignore").strip()
+        if err:
+            logger.warning("[aemeath_bili] worker stderr: %s", err.decode("utf-8", "ignore")[-400:])
+        try:
+            return json.loads(text_out.splitlines()[-1])
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "error": f"bad_output({text_out[:80]})"}
 
-        comments = await asyncio.to_thread(client.comments, info["aid"], int(self.config.get("topComments", 5)))
+    @staticmethod
+    def _err_text(code: str) -> str:
+        if code == "timeout":
+            return "这个视频下得太慢了，超时放弃了"
+        if code == "memory_limit":
+            return "这个视频太大了，撑不住"
+        if code == "no_stream":
+            return "这个视频没有可用的画面流"
+        if code.startswith("bad_output"):
+            return "处理出问题了，等下再试"
+        return code[:60] or "不知道哪出错了"
+
+    async def watch(self, text: str, mode: str = "comment") -> tuple[str, str | None]:
+        """mode=comment 聊两句；mode=summary 认真总结（视频处理跑在独立进程里）"""
+        async with self._sem:
+            result = await self._run_worker(text)
+        if not result.get("ok"):
+            code = result.get("error") or "unknown"
+            if code == "too_long":
+                dur = bili.fmt_duration(result.get("duration") or 0)
+                return (f"这个有 {dur} 诶，太长了，我只看半小时以内的", None)
+            raise bili.BiliError(self._err_text(code))
+
+        info = result["info"]
+        dialog = result.get("dialog") or ""
+        boards = result.get("boards") or []
+        comments = result.get("comments") or []
+        if dialog:
+            logger.info("[aemeath_bili] 拿到台词 %d 字（%s）", len(dialog), info["bvid"])
+
         comment_block = ("热评：\n" + "\n".join(f"- {c}" for c in comments)) if comments else ""
         stat = info.get("stat") or {}
-        tpl = SUMMARY_PROMPT if mode == "summary" else PROMPT
         if mode == "summary":
-            prompt = tpl.format(
+            prompt = SUMMARY_PROMPT.format(
                 title=info["title"][:80],
                 owner=info["owner"],
                 duration=bili.fmt_duration(info["duration"]),
@@ -175,35 +196,35 @@ class AemeathBiliPlugin(Star):
                 chars=int(self.config.get("summaryChars", 320)),
             )
         else:
-            prompt = tpl.format(
-            title=info["title"][:80],
-            owner=info["owner"],
-            duration=bili.fmt_duration(info["duration"]),
-            view=bili.fmt_num(stat.get("view")),
-            desc=(info["desc"] or "（无）")[:300],
-            dialog=dialog,
-            comments=comment_block,
-            material_note=MATERIAL_NOTE,
-            chars=int(self.config.get("commentChars", 60)),
-        )
+            prompt = PROMPT.format(
+                title=info["title"][:80],
+                owner=info["owner"],
+                duration=bili.fmt_duration(info["duration"]),
+                view=bili.fmt_num(stat.get("view")),
+                desc=(info["desc"] or "（无）")[:300],
+                dialog=(dialog or "（没有字幕，只能看画面）")[:1200],
+                comments=comment_block,
+                material_note=MATERIAL_NOTE,
+                chars=int(self.config.get("commentChars", 60)),
+            )
 
         provider = self.context.get_using_provider()
         if provider is None:
-            return ("我看完了，但没模型可以说话", board)
+            return ("我看完了，但没模型可以说话", boards[0] if boards else None)
         try:
             resp = await provider.text_chat(
                 prompt=prompt,
-                image_urls=[to_data_uri(b) for b in (boards or []) if b],
+                image_urls=[to_data_uri(b) for b in boards if b],
                 contexts=[],
                 system_prompt=self._persona(),
             )
-            text = (getattr(resp, "completion_text", "") or "").strip()
+            reply = (getattr(resp, "completion_text", "") or "").strip()
         except Exception as exc:  # noqa: BLE001
             logger.warning("[aemeath_bili] 模型看不懂画面: %s", exc)
-            text = ""
-        if not text:
-            text = f"看完了《{info['title'][:20]}》，{bili.fmt_duration(info['duration'])}，画面挺密集的"
-        return text[:400], (boards[0] if boards else None)
+            reply = ""
+        if not reply:
+            reply = f"看完了《{info['title'][:20]}》，{bili.fmt_duration(info['duration'])}，画面挺密集的"
+        return reply[:400], (boards[0] if boards else None)
 
     async def _dialog(self, client, dash: dict, info: dict, work: str) -> str:
         """台词：优先 B站字幕（需要 cookie），否则走语音识别（需要配 ASR）"""
