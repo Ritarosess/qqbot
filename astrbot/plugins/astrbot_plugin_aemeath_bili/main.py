@@ -113,14 +113,14 @@ class AemeathBiliPlugin(Star):
         frames_n = int(self.config.get("frames", 12))
 
         client = bili.Bili(cookie=str(self.config.get("biliCookie") or ""))
-        vid = client.resolve_input(text)
-        info = client.view(vid)
+        vid = await asyncio.to_thread(client.resolve_input, text)
+        info = await asyncio.to_thread(client.view, vid)
         if info["duration"] > max_dur:
             return (f"这个有 {bili.fmt_duration(info['duration'])} 诶，太长了，我只看十分钟以内的", None)
         if not info.get("cid"):
             raise bili.BiliError("拿不到 cid")
 
-        dash = client.playurl_dash(info["bvid"], info["cid"])
+        dash = await asyncio.to_thread(client.playurl_dash, info["bvid"], info["cid"])
         stream = bili.pick_stream(dash.get("video") or [],
                                   int(self.config.get("maxHeight", 480)))
         if not stream:
@@ -131,7 +131,8 @@ class AemeathBiliPlugin(Star):
         os.makedirs(work, exist_ok=True)
         video_path = os.path.join(work, "v.m4s")
         try:
-            client.download(stream["baseUrl"], video_path, max_mb * 1024 * 1024)
+            await asyncio.to_thread(client.download, stream["baseUrl"], video_path,
+                                    max_mb * 1024 * 1024)
             dialog = await self._dialog(client, dash, info, work)
             if dialog:
                 logger.info("[aemeath_bili] 拿到台词 %d 字（%s）", len(dialog), info["bvid"])
@@ -159,7 +160,7 @@ class AemeathBiliPlugin(Star):
             if os.path.exists(video_path):
                 os.remove(video_path)
 
-        comments = client.comments(info["aid"], int(self.config.get("topComments", 5)))
+        comments = await asyncio.to_thread(client.comments, info["aid"], int(self.config.get("topComments", 5)))
         comment_block = ("热评：\n" + "\n".join(f"- {c}" for c in comments)) if comments else ""
         stat = info.get("stat") or {}
         tpl = SUMMARY_PROMPT if mode == "summary" else PROMPT
@@ -208,7 +209,7 @@ class AemeathBiliPlugin(Star):
         """台词：优先 B站字幕（需要 cookie），否则走语音识别（需要配 ASR）"""
         text = ""
         try:
-            text = client.subtitles(info["bvid"], info["cid"])
+            text = await asyncio.to_thread(client.subtitles, info["bvid"], info["cid"])
         except Exception:  # noqa: BLE001
             text = ""
         if text:
@@ -319,9 +320,9 @@ class AemeathBiliPlugin(Star):
             return
         try:
             client = bili.Bili(cookie=str(self.config.get("biliCookie") or ""))
-            vid = client.resolve_input(target)
-            info = client.view(vid)
-            entries = client.subtitles_raw(info["bvid"], info["cid"])
+            vid = await asyncio.to_thread(client.resolve_input, target)
+            info = await asyncio.to_thread(client.view, vid)
+            entries = await asyncio.to_thread(client.subtitles_raw, info["bvid"], info["cid"])
         except bili.BiliError as exc:
             yield event.plain_result(f"这个看不了：{exc}")
             return

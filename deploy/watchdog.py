@@ -144,20 +144,49 @@ def container_running(name: str) -> bool | None:
 
 
 def astrbot_ws_alive():
-    """AstrBot 内部的 OneBot 服务端口（6199）是否在监听；容器在跑但端口不通 = 进程挂死"""
+    """AstrBot 是否还活着：6199 端口能连 + 6185 的 HTTP 能在 6 秒内回
+
+    只看端口会误判：事件循环卡死时 socket 仍然 accept（内核 backlog），
+    必须让它真的返回一个 HTTP 响应才算活着。
+    """
+    probe = (
+        "import socket, urllib.request\n"
+        "socket.create_connection(('127.0.0.1', 6199), 3).close()\n"
+        "urllib.request.urlopen('http://127.0.0.1:6185/', timeout=6).read(64)\n"
+        "print('ok')\n"
+    )
     try:
         r = subprocess.run(
-            ["docker", "exec", "astrbot", "python", "-c",
-             "import socket;socket.create_connection(('127.0.0.1',6199),3).close();print('ok')"],
-            capture_output=True, text=True, timeout=25,
+            ["docker", "exec", "astrbot", "python", "-c", probe],
+            capture_output=True, text=True, timeout=30,
         )
         return r.returncode == 0 and "ok" in (r.stdout or "")
     except Exception:  # noqa: BLE001
         return None
 
 
+STRIKE_FILE = "/var/lib/qqbot-watchdog/astrbot_strikes.json"
+
+
+def _load_strikes() -> int:
+    try:
+        with open(STRIKE_FILE, encoding="utf-8") as f:
+            return int(json.load(f).get("strikes") or 0)
+    except Exception:  # noqa: BLE001
+        return 0
+
+
+def _save_strikes(n: int) -> None:
+    try:
+        os.makedirs(os.path.dirname(STRIKE_FILE), exist_ok=True)
+        with open(STRIKE_FILE, "w", encoding="utf-8") as f:
+            json.dump({"strikes": n}, f)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def ensure_astrbot() -> None:
-    """AstrBot 兜底：容器没跑就 start；容器在跑但 OneBot 端口不通就 restart"""
+    """AstrBot 兜底：容器没跑就 start；容器在跑但健康检查连续失败就 restart"""
     running = container_running("astrbot")
     if running is False:
         log("检测到 AstrBot 未运行，正在拉起")
@@ -167,11 +196,19 @@ def ensure_astrbot() -> None:
         except Exception as exc:  # noqa: BLE001
             log(f"拉起 AstrBot 失败: {exc}")
         return
-    if running and astrbot_ws_alive() is False:
-        log("AstrBot 在跑但 OneBot 端口(6199)不通，判定挂死，重启")
+    alive = astrbot_ws_alive() if running else None
+    if running and alive is False:
+        strikes = _load_strikes() + 1
+        _save_strikes(strikes)
+        if strikes < 2:
+            log(f"AstrBot 健康检查失败（第 {strikes} 次），下次再失败就重启")
+            return
+        _save_strikes(0)
+        log("AstrBot 在跑但健康检查连续失败，判定挂死，重启")
         try:
             subprocess.run(["docker", "restart", "astrbot"], timeout=180, check=False)
             log("AstrBot 已重启")
+            _save_strikes(0)
             notify_ntfy("AstrBot 已自动重启", "检测到 AstrBot 进程挂死（OneBot 端口不通），已重启恢复",
                         "high", "wrench")
         except Exception as exc:  # noqa: BLE001
