@@ -22,6 +22,8 @@ LOG = "/var/log/qqbot-watchdog.log"
 WEBHOOK = os.environ.get("WATCHDOG_WEBHOOK", "")
 # ntfy 手机推送：填主题地址，例如 https://ntfy.sh/你的随机主题
 NTFY_URL = os.environ.get("NTFY_URL", "")
+# 假在线探测：用 send_like 戳一下这个 QQ（不产生聊天消息），留空则只做被动检查
+PROBE_QQ = os.environ.get("WATCHDOG_PROBE_QQ", "")
 RESTART_GAP = 6 * 60 * 60  # 扫码登录期间重启只会把二维码刷掉，6 小时一次就够
 
 
@@ -185,6 +187,10 @@ def _save_strikes(n: int) -> None:
         pass
 
 
+def docker_restart(name: str) -> None:
+    subprocess.run(["docker", "restart", name], timeout=180, check=False)
+
+
 def ensure_astrbot() -> None:
     """AstrBot 兜底：容器没跑就 start；容器在跑但健康检查连续失败就 restart"""
     running = container_running("astrbot")
@@ -213,6 +219,126 @@ def ensure_astrbot() -> None:
                         "high", "wrench")
         except Exception as exc:  # noqa: BLE001
             log(f"重启 AstrBot 失败: {exc}")
+
+
+
+def _napcat_tcp_count() -> int:
+    """看容器里有没有到外网的 ESTABLISHED 连接；0 基本等于 QQ 层死了"""
+    try:
+        out = subprocess.run(
+            ["docker", "exec", "napcat", "cat", "/proc/net/tcp"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except Exception:  # noqa: BLE001
+        return -1
+    count = 0
+    for line in (out.stdout or "").splitlines()[1:]:
+        parts = line.split()
+        if len(parts) < 4 or parts[3] != "01":  # 01 = ESTABLISHED
+            continue
+        try:
+            port = int(parts[2].split(":")[1], 16)
+        except (IndexError, ValueError):
+            continue
+        if port in (80, 443, 8080, 8000, 14000):
+            count += 1
+    return count
+
+
+def _onebot_call(action: str, params: dict, timeout: float = 8.0):
+    """最小 WebSocket 客户端：连 NapCat 3001 调一个 OneBot 接口"""
+    import base64
+    import socket
+    import struct
+
+    try:
+        s = socket.create_connection(("127.0.0.1", 3001), timeout=timeout)
+    except OSError:
+        return None
+    try:
+        key = base64.b64encode(os.urandom(16)).decode()
+        s.sendall(("GET / HTTP/1.1\r\nHost: 127.0.0.1:3001\r\nUpgrade: websocket\r\n"
+                   "Connection: Upgrade\r\nSec-WebSocket-Key: " + key +
+                   "\r\nSec-WebSocket-Version: 13\r\n\r\n").encode())
+        resp = b""
+        while b"\r\n\r\n" not in resp:
+            chunk = s.recv(4096)
+            if not chunk:
+                return None
+            resp += chunk
+        if "101" not in resp.split(b"\r\n", 1)[0].decode(errors="ignore"):
+            return None
+        payload = json.dumps({"action": action, "params": params, "echo": "wd"}).encode()
+        mask = os.urandom(4)
+        header = bytearray([0x81])
+        n = len(payload)
+        if n < 126:
+            header.append(0x80 | n)
+        elif n < 65536:
+            header.append(0x80 | 126)
+            header += struct.pack("!H", n)
+        else:
+            header.append(0x80 | 127)
+            header += struct.pack("!Q", n)
+        header += mask
+        s.sendall(bytes(header) + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+        buf = resp.split(b"\r\n\r\n", 1)[1] if b"\r\n\r\n" in resp else b""
+        while True:
+            while len(buf) < 2:
+                more = s.recv(4096)
+                if not more:
+                    return None
+                buf += more
+            length = buf[1] & 0x7F
+            offset = 2
+            if length == 126:
+                while len(buf) < 4:
+                    buf += s.recv(4096)
+                length = struct.unpack("!H", buf[2:4])[0]
+                offset = 4
+            elif length == 127:
+                while len(buf) < 10:
+                    buf += s.recv(4096)
+                length = struct.unpack("!Q", buf[2:10])[0]
+                offset = 10
+            while len(buf) < offset + length:
+                buf += s.recv(4096)
+            body = buf[offset:offset + length]
+            buf = buf[offset + length:]
+            try:
+                data = json.loads(body.decode())
+            except ValueError:
+                continue
+            if data.get("echo") == "wd":
+                return data
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def qq_link_alive(st: dict) -> bool | None:
+    """QQ 链路是否真活着：TCP 至少有一条外网连接 + 每小时用点赞戳一次
+
+    只看 get_status 会被骗：QQ 底层断了它照样返回 online。
+    """
+    tcp = _napcat_tcp_count()
+    if tcp == 0:
+        return False
+    if not PROBE_QQ:
+        return True if tcp > 0 else None
+    now = time.time()
+    last = float(st.get("last_like_probe") or 0)
+    if now - last < 3600:
+        return True
+    res = _onebot_call("send_like", {"user_id": PROBE_QQ, "times": 1})
+    st["last_like_probe"] = now
+    save_state(st)
+    if not res:
+        return False
+    if res.get("status") != "ok":
+        return False
+    return True
 
 
 def notify_ntfy(title: str, text: str, priority: str = "default", tags: str = "") -> None:
@@ -254,6 +380,29 @@ def main():
     state = qq_alive()
 
     if state == "online":
+        # 假在线检查：日志看着在线，但 QQ 链路可能已经死了（get_status 会骗人）
+        link = qq_link_alive(st)
+        if link is False:
+            strikes = int(st.get("fake_online_strikes") or 0) + 1
+            st["fake_online_strikes"] = strikes
+            save_state(st)
+            log(f"疑似假在线（第 {strikes} 次）：QQ 链路探测失败")
+            if strikes >= 2:
+                st["fake_online_strikes"] = 0
+                save_state(st)
+                log("连续两次判定假在线，重启 NapCat")
+                try:
+                    docker_restart("napcat")
+                except Exception as exc:  # noqa: BLE001
+                    log(f"重启 NapCat 失败: {exc}")
+                notify_ntfy("QQ 链路假在线", "NapCat 显示在线但实际发不出消息，已重启 NapCat（可能需要扫码）",
+                            "urgent", "rotating_light")
+                return
+        elif link is True:
+            if st.get("fake_online_strikes"):
+                st["fake_online_strikes"] = 0
+                save_state(st)
+
         off_since = st.get("offline_since")
         if off_since:
             secs = int(now - float(off_since))
