@@ -45,6 +45,8 @@ TASK = (
     "另外单独打主题标签，和上面的分级无关（只决定搬运方式，不影响你说话）：\n"
     "内容主要是美少女/二次元美图/动漫少女（文字或图片都算）→ 打「美少女」\n"
     "内容很抽象（抽象话、离谱整活、烂梗、逆天截图）→ 打「抽象」\n"
+    "普通聊天记录、日常对话、正经讨论（哪怕有点好笑）→ 打「日常」，**不要**打「抽象」\n"
+    "只有真的离谱、在整活、一眼逆天，才算「抽象」；拿不准一律算「日常」\n"
     "内容有擦边（轻度性感、暗示、露而不露）→ 打「擦边」；擦边和 R18 互斥，只能选一个\n"
     "内容含 R18 要素（色情、露骨性暗示）→ **必须**打「R18」，这一条优先\n"
     "多个标签用逗号分隔；都不符合 → 打「其他」\n"
@@ -52,6 +54,22 @@ TASK = (
     "TAG: 美少女,抽象,擦边,R18|其他\n"
     "LV: <1-5 的数字>\n"
     "<一句反应，不超过 {chars} 字，不要 [emoji] 等标记>\n"
+)
+
+def looks_like_daily_chat(text: str) -> bool:
+    """像普通聊天记录吗：行数多、每行短、没有整活关键词"""
+    lines = [ln.strip() for ln in (text or "").splitlines() if ln.strip()]
+    if len(lines) < 8:
+        return False
+    if ABSTRACT_HINTS.search(text or ""):
+        return False
+    avg = sum(len(ln) for ln in lines) / max(1, len(lines))
+    return avg < 30
+
+
+ABSTRACT_HINTS = re.compile(
+    r"(抽象|逆天|离谱|难绷|绷不住|笑死|整活|乐子|重量级|小丑|孝子|典中典|名场面|地狱笑话|"
+    r"一眼假|看傻了|人麻了|给我整)"
 )
 
 MOVE_PAT = re.compile(
@@ -1030,6 +1048,22 @@ class AemeathChishiPlugin(Star):
                 logger.info("[aemeath_chishi] B站卡片默认不自动搬，跳过（需手动搬）")
                 return
             logger.info("[aemeath_chishi] B站卡片允许自动搬，继续后续规则")
+
+        # 日常聊天兜底：行数多、每行都短、又没有整活关键词 → 不搬（哪怕模型打了抽象）
+        if looks_like_daily_chat(material.get("text") or ""):
+            logger.info("[aemeath_chishi] 内容像普通聊天记录，不搬")
+            return
+
+        # 只搬指定标签：feedRequireTags 非空时，标签里必须有一个命中才允许自动搬
+        # （日常聊天记录经常被模型打到 3 级以上，靠这条兜住）
+        require_tags = str(self.config.get("feedRequireTags") or "")
+        if require_tags:
+            hit_require = next((t for t in tag if in_list(require_tags, t)), "")
+            if not hit_require:
+                logger.info("[aemeath_chishi] 标签「%s」不在允许搬运的标签里，不搬",
+                            ",".join(tag) or "-")
+                return
+            logger.info("[aemeath_chishi] 允许搬运的标签「%s」命中", hit_require)
 
         # 强制搬运（独立于等级/概率/黑名单）：模型主题标签里任一个命中 feedForceTags，
         # 或文本命中 feedForceKeywords → 直接搬，不看 Lv、不看概率、不看黑名单
