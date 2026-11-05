@@ -224,24 +224,26 @@ def ensure_astrbot() -> None:
 
 def _napcat_tcp_count() -> int:
     """看容器里有没有到外网的 ESTABLISHED 连接；0 基本等于 QQ 层死了"""
-    try:
-        out = subprocess.run(
-            ["docker", "exec", "napcat", "cat", "/proc/net/tcp"],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception:  # noqa: BLE001
-        return -1
     count = 0
-    for line in (out.stdout or "").splitlines()[1:]:
-        parts = line.split()
-        if len(parts) < 4 or parts[3] != "01":  # 01 = ESTABLISHED
-            continue
+    for table in ("/proc/net/tcp", "/proc/net/tcp6"):
         try:
-            port = int(parts[2].split(":")[1], 16)
-        except (IndexError, ValueError):
+            out = subprocess.run(
+                ["docker", "exec", "napcat", "cat", table],
+                capture_output=True, text=True, timeout=15,
+            )
+        except Exception:  # noqa: BLE001
             continue
-        if port in (80, 443, 8080, 8000, 14000):
-            count += 1
+        rows = (out.stdout or "").splitlines()[1:]
+        for line in rows:
+            parts = line.split()
+            if len(parts) < 4 or parts[3] != "01":  # 01 = ESTABLISHED
+                continue
+            try:
+                port = int(parts[2].split(":")[1], 16)
+            except (IndexError, ValueError):
+                continue
+            if port in (80, 443, 8080, 8000, 14000):
+                count += 1
     return count
 
 
@@ -322,17 +324,19 @@ def qq_link_alive(st: dict) -> bool | None:
 
     只看 get_status 会被骗：QQ 底层断了它照样返回 online。
     """
+    # 注意：不能拿「TCP 连接数=0」当死掉——QQ 大量走 IPv6，
+    # 只有 /proc/net/tcp（IPv4）时经常是 0，会造成误判、每隔 20 分钟重启一次。
+    # 只信 send_like 的探活结果。
     tcp = _napcat_tcp_count()
-    if tcp == 0:
-        return False
     if not PROBE_QQ:
-        return True if tcp > 0 else None
+        return True if tcp is None or tcp > 0 else None
     now = time.time()
     last = float(st.get("last_like_probe") or 0)
-    if now - last < 3600:
+    if now - last < 600:  # 10 分钟内查过就先用 TCP 结果
         return True
     res = _onebot_call("send_like", {"user_id": PROBE_QQ, "times": 1})
     st["last_like_probe"] = now
+    st["last_probe_ok"] = bool(res) and res.get("status") == "ok"
     save_state(st)
     if not res:
         return False
@@ -383,21 +387,22 @@ def main():
         # 假在线检查：日志看着在线，但 QQ 链路可能已经死了（get_status 会骗人）
         link = qq_link_alive(st)
         if link is False:
-            strikes = int(st.get("fake_online_strikes") or 0) + 1
-            st["fake_online_strikes"] = strikes
-            save_state(st)
-            log(f"疑似假在线（第 {strikes} 次）：QQ 链路探测失败")
-            if strikes >= 2:
-                st["fake_online_strikes"] = 0
-                save_state(st)
-                log("连续两次判定假在线，重启 NapCat")
-                try:
-                    docker_restart("napcat")
-                except Exception as exc:  # noqa: BLE001
-                    log(f"重启 NapCat 失败: {exc}")
-                notify_ntfy("QQ 链路假在线", "NapCat 显示在线但实际发不出消息，已重启 NapCat（可能需要扫码）",
-                            "urgent", "rotating_light")
+            # 点赞探活失败 / 一条外网连接都没有 → 直接判定链路已死
+            cooldown = float(st.get("last_fake_restart") or 0)
+            if now - cooldown < 20 * 60:
+                log("假在线仍未恢复，但 20 分钟内刚重启过，等下一轮")
                 return
+            st["last_fake_restart"] = now
+            st["fake_online_strikes"] = 0
+            save_state(st)
+            log("判定假在线（QQ 链路探测失败），重启 NapCat")
+            try:
+                docker_restart("napcat")
+            except Exception as exc:  # noqa: BLE001
+                log(f"重启 NapCat 失败: {exc}")
+            notify_ntfy("QQ 链路假在线", "NapCat 显示在线但实际发不出消息，已重启 NapCat（可能需要扫码）",
+                        "urgent", "rotating_light")
+            return
         elif link is True:
             if st.get("fake_online_strikes"):
                 st["fake_online_strikes"] = 0
