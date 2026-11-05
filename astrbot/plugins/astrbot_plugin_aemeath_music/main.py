@@ -26,6 +26,33 @@ HEADERS = {
 }
 
 
+
+# 自然口语点歌：「来首远航星的告别」「放一下那首…」「想听 X」
+NATURAL_SONG_RE = re.compile(
+    r"^(?:来一首|来首|放一首|放首|播一首|播首|点一首|点首|想听|听一首|听首|演奏|弹一首|弹首|点歌)\s*"
+    r"[《「【\"']?(.+?)[》」】\"']?\s*(?:吧|呗|呀|啊|嘛|谢谢|可以吗)?[。.!！~～]*$"
+)
+
+
+def extract_song_keyword(text: str, prefixes) -> str | None:
+    """先按配置的前缀匹配，匹配不到再用口语正则（限制长度，避免误吃正常句子）"""
+    text = (text or "").strip()
+    for prefix in sorted(prefixes, key=len, reverse=True):
+        if prefix and text.startswith(prefix):
+            rest = text[len(prefix):].lstrip(" 　:：,，!！~～")
+            if rest:
+                return rest.strip()
+    if len(text) > 24:
+        return None
+    m = NATURAL_SONG_RE.match(text)
+    if not m:
+        return None
+    kw = m.group(1).strip(" 　:：,，《》「」【】\"'")
+    if not kw or len(kw) > 20:
+        return None
+    return kw
+
+
 class AemeathMusicPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
@@ -75,13 +102,7 @@ class AemeathMusicPlugin(Star):
     # ---------- 触发 ----------
 
     def _match(self, text: str):
-        prefixes = sorted(self.config.get("prefixes", []), key=len, reverse=True)
-        for prefix in prefixes:
-            if prefix and text.startswith(prefix):
-                rest = text[len(prefix):].lstrip(" 　:：,，!！~～")
-                if rest:
-                    return rest.strip()
-        return None
+        return extract_song_keyword(text, self.config.get("prefixes", []))
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_request(self, event: AstrMessageEvent):

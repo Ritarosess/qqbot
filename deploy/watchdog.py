@@ -332,17 +332,17 @@ def qq_link_alive(st: dict) -> bool | None:
         return True if tcp is None or tcp > 0 else None
     now = time.time()
     last = float(st.get("last_like_probe") or 0)
-    if now - last < 600:  # 10 分钟内查过就先用 TCP 结果
+    if now - last < 1800:  # 半小时内查过就认为还是好的
         return True
-    res = _onebot_call("send_like", {"user_id": PROBE_QQ, "times": 1})
+    # 用只读查询探活：get_stranger_info 会真的问一次服务端，又不像点赞那样有次数限制
+    # （之前用 send_like，QQ 会回「点赞失败 网络连接异常」，被误判成掉线 → 反复重启 → 只能扫码）
+    res = _onebot_call("get_stranger_info", {"user_id": PROBE_QQ, "no_friend": True})
+    if not res or res.get("status") != "ok":
+        res = _onebot_call("get_status", {})
     st["last_like_probe"] = now
     st["last_probe_ok"] = bool(res) and res.get("status") == "ok"
     save_state(st)
-    if not res:
-        return False
-    if res.get("status") != "ok":
-        return False
-    return True
+    return bool(res) and res.get("status") == "ok"
 
 
 def notify_ntfy(title: str, text: str, priority: str = "default", tags: str = "") -> None:

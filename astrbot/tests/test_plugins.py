@@ -1990,6 +1990,15 @@ async def main():
     check("memory: 自动抽取写入记忆",
           len(mp2._records) == 1 and "团子" in mp2._records[0]["text"])
 
+    # ---------- 点歌口语触发 ----------
+    music = load_plugin_extra("astrbot_plugin_aemeath_music", "main")
+    ex = music.extract_song_keyword
+    check("点歌: 前缀「点歌 X」", ex("点歌 远航星的告别", ["点歌"]) == "远航星的告别")
+    check("点歌: 口语「来首 X」", ex("来首远航星的告别", ["点歌"]) == "远航星的告别")
+    check("点歌: 口语「想听 X」", ex("想听晴天", []) == "晴天")
+    check("点歌: 带书名号", ex("来一首《远航星的告别》", []) == "远航星的告别")
+    check("点歌: 普通说话不算", ex("今天天气不错我们出去玩吧啊啊啊", []) is None)
+
     # ---------- bili 看视频 ----------
     bili_mod = load_plugin_extra("astrbot_plugin_aemeath_bili", "bili")
     check("bili: 抠 BV 号",
